@@ -1,0 +1,72 @@
+# SPRINT 11: Secure MMIO Boot Sequencer
+#
+# Scenario: Privilege-separated peripheral initialization
+#
+# A boot ROM must initialize three hardware peripherals in order:
+#
+#   1. Boot status register (0x30, Siddha, Ring2)
+#      Write initial status flags to the shared status bus.
+#      Globally visible -- any process can read it.
+#
+#   2. Clock control register (0x50, Asiddha, Ring0)
+#      Configure the PLL. Isolated register -- kernel access only.
+#      Must be inside a privileged scope.
+#
+#   3. Security lock register (0x60, Asiddha, Ring0) -- SANDHI-FUSED with above
+#      Write config, then atomically lock it.
+#      The write-then-lock pair must be atomic: if any instruction executes
+#      between them, the lock can be bypassed by a race condition.
+#      Sandhi makes this an explicit, compile-time-verified atomic pair.
+#
+#   4. Boot status confirm (0x30, Siddha, Ring2)
+#      Signal that initialization is complete.
+#
+# Bug class prevented:
+#   In unstructured firmware (C, assembly), three classes of bugs are common:
+#
+#   BUG-1: Unscoped privileged write
+#     A Ring0 MMIO write outside any privilege scope is invisible to auditors.
+#     P4 prevents this structurally -- Ring0 without अधिकारः cannot compile.
+#
+#   BUG-2: Privileged write to shared bus
+#     Writing with Ring0 authority to a globally visible (Siddha) address
+#     conflates kernel privilege with user-visible state.
+#     P3 prevents this -- Ring0 on addr < 0x50 cannot compile.
+#
+#   BUG-3: Non-atomic configure-then-lock
+#     If the security register write and lock are not executed atomically,
+#     a cycle-timing adversary can insert a write between them.
+#     Sandhi prevents this -- the pair is declared atomic at compile time,
+#     FLAGS=0xE in the binary signals the firmware to execute it atomically.
+#
+# ABI words expected:
+#   0x200530F0  Write  boot_status  (Ring2, Siddha, standalone)
+#   0x00AA00F0  ADHIKARA_OPEN
+#   0x00CC50F0  Store  clock_ctrl   (Ring0, Asiddha, inside scope)
+#   0x00CC60E0  Store  sec_lock     (Ring0, Asiddha, SANDHI-FIRST)
+#   0x00CC60F0  Store  sec_lock     (Ring0, Asiddha, SANDHI-PAIR -- atomic with above)
+#   0x00BB00F0  ADHIKARA_CLOSE
+#   0x200530F0  Write  boot_status  (Ring2, Siddha, confirm)
+#
+# Expected UART:
+#   status_writes=0x02  privileged_inits=0x01  clock_stores=0x01
+#   lock_stores=0x02  sandhi_pairs=0x01  scope_opens=0x01  scope_closes=0x01
+
+सञ्ज्ञा घड़ी = 0x50 ।
+सञ्ज्ञा सुरक्षा = 0x60 ।
+
+तन्त्रशास्त्रम् {
+    # 1. Signal boot start (Ring2, shared status bus)
+    वाचम् लिखति ।
+
+    # 2-3. Enter privileged scope: configure clock, then atomically write+lock security reg
+    अधिकारः {
+        घड़ी स्थापयति ।        # Clock PLL config (Ring0, isolated)
+        सुरक्षा स्थापयति ।     # Security reg write  (Ring0, isolated, SANDHI-FIRST)
+        सन्धिः ।
+        सुरक्षा स्थापयति ।     # Security reg lock   (Ring0, isolated, atomic pair)
+    }
+
+    # 4. Signal boot complete (Ring2, shared status bus)
+    वाचम् लिखति ।
+}

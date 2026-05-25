@@ -1,0 +1,13 @@
+तन्त्रशास्त्रम् {
+    # SPRINT 2: Conditional Rule Application — Utsarga / Apavāda
+    #
+    # Utsarga (उत्सर्गः) — the general rule.
+    # Fires when no exception condition is met.
+    # "By default, write to Vāk (the visible output stream)."
+    उत्सर्गः वाचम् लिखति ।
+
+    # Apavāda (अपवादः) — the exception rule.
+    # Fires when Śrotra (the input stream) carries a non-zero signal.
+    # "If input is present, store to Yantra under Ring 0 instead."
+    अपवादः श्रोत्रात् यन्त्रै स्थापयति ।
+}

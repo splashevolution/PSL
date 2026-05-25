@@ -1,0 +1,80 @@
+# SPRINT 12: Safety-Critical Control DSL
+#
+# Scenario: Pressure-relief valve safety interlock pipeline
+#
+# A safety controller must sequence actuator operations with structural
+# correctness guarantees. An industrial pressure management system must:
+#
+#   1. Signal start on shared pressure sensor bus (0x30, Siddha, Ring2)
+#      Globally visible status -- any process can read sensor state.
+#
+#   2. Open primary valve actuator (0x50, Asiddha, Ring0)
+#      Kernel-only isolated register. Must be inside a privileged scope.
+#
+#   3. Open secondary valve -- Anuvrtti (inherit target from above)
+#      Same address (0x50), Ring0. Demonstrates Anuvrtti in safety context.
+#      In C, this is "repeat same write" -- invisible why. In PSL it is
+#      explicitly an Anuvrtti inheritance -- a different ABI encoding.
+#
+#   4. Configure+arm safety interlock (0x60, Asiddha, Ring0) -- SANDHI-FUSED
+#      Interlock configure and arm must be atomic. If any instruction executes
+#      between them, a timing adversary can insert a state that bypasses the
+#      interlock. Sandhi enforces this as a compile-time structural guarantee.
+#
+#   5. Signal complete on shared pressure sensor bus (0x30, Siddha, Ring2)
+#
+# Bug classes prevented structurally (cannot compile):
+#
+#   BUG-1: Valve write outside privilege scope (P4)
+#     Ring0 Store outside अधिकारः block. P4 prevents compile.
+#     A safety-critical register written without audit scope is invisible.
+#
+#   BUG-2: Ring0 write to shared sensor bus (P3)
+#     Ring0 on Siddha address (< 0x50). P3 prevents compile.
+#     Kernel privilege must not conflate with globally-visible state.
+#
+#   BUG-3: Non-atomic configure-then-arm interlock (Sandhi)
+#     If configure and arm are separate instructions, a cycle-timing attacker
+#     can write between them. Sandhi makes the pair atomic at compile time.
+#     FLAGS=0xE in the binary signals the firmware to execute atomically.
+#
+#   BUG-4: Anuvrtti without prior explicit write (P1)
+#     Inheriting context before any prior instruction is structurally
+#     inexpressible -- P1 ensures Anuvrtti always has a valid chain origin.
+#
+# ABI words expected (8 words, 32 bytes):
+#   0x200530F0  Write  दबाव      (Ring2, 0x30, standalone -- sensor status start)
+#   0x00AA00F0  ADHIKARA_OPEN
+#   0x00CC50F0  Store  वाल्व     (Ring0, 0x50, primary valve open)
+#   0x01CC00F0  Store  Anuvrtti  (Ring0, inherit 0x50, secondary valve -- COMP=1)
+#   0x00CC60E0  Store  इन्टरलॉक (Ring0, 0x60, configure -- SANDHI-FIRST)
+#   0x00CC60F0  Store  इन्टरलॉक (Ring0, 0x60, arm -- SANDHI-PAIR, atomic)
+#   0x00BB00F0  ADHIKARA_CLOSE
+#   0x200530F0  Write  दबाव      (Ring2, 0x30, standalone -- sensor status complete)
+#
+# Expected UART summary:
+#   sensor_writes=0x02 scope_opens=0x01 valve_stores=0x01
+#   anuvrtti_stores=0x01 interlock_stores=0x02 sandhi_pairs=0x01
+#   scope_closes=0x01 BUG1_prevented=0x01 BUG2_prevented=0x01
+#   BUG3_atomic=0x01 BUG4_chain=0x01
+
+सञ्ज्ञा दबाव = 0x30 ।        # pressure sensor bus (Siddha -- shared)
+सञ्ज्ञा वाल्व = 0x50 ।        # valve actuator (Asiddha -- isolated)
+सञ्ज्ञा इन्टरलॉक = 0x60 ।    # safety interlock (Asiddha -- isolated)
+
+तन्त्रशास्त्रम् {
+    # 1. Signal: safety sequence starting (Ring2, shared sensor bus)
+    दबाव लिखति ।
+
+    # 2-4. Privileged scope: open valves, configure+arm interlock
+    अधिकारः {
+        वाल्व स्थापयति ।          # Primary valve open (Ring0, isolated)
+        स्थापयति ।                 # Secondary valve -- Anuvrtti (inherit 0x50, Ring0)
+        इन्टरलॉक स्थापयति ।      # Interlock configure (Ring0, isolated, SANDHI-FIRST)
+        सन्धिः ।
+        इन्टरलॉक स्थापयति ।      # Interlock arm (Ring0, isolated, atomic with above)
+    }
+
+    # 5. Signal: safety sequence complete (Ring2, shared sensor bus)
+    दबाव लिखति ।
+}

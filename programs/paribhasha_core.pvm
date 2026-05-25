@@ -1,0 +1,46 @@
+# SPRINT 7: Paribhasha -- Three Intentional Violations
+#
+# Each block below is a SEPARATE program. The compiler must reject
+# each one independently, emitting zero bytes. The pipeline tests
+# each violation in isolation. The rejection is the proof.
+#
+# P1: Anuvrtti-at-start
+#     First instruction has no Karaka (no prior context to inherit).
+#
+# P2: Lopa-on-unwritten
+#     Lopa targets Vak (0x30) which was never written in this stream.
+#
+# P3: Vrddhi-on-Siddha
+#     Ring 0 privilege applied to Vak bus (0x30, Siddha < 0x50).
+#     Vrddhi is only valid for Asiddha targets (>= 0x50).
+#     The Karaka "vaagyanthraiah" (vaagg + yantra + Ring-0 instrumental)
+#     encodes this structurally invalid combination.
+
+# --- VIOLATION P1: Anuvrtti-at-start ---
+# Compile: python -B -c "
+#   import importlib.util; spec = importlib.util.spec_from_file_location(
+#     'sc', 'src/utils/paninian_compiler.py')
+#   mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
+#   mod.PaninianFormalCompiler().compile_source(open('paribhasha_core.pvm').read())"
+# Expected: ParibhashaError P1
+
+# P1 violation program:
+# tantrashastram {
+#     likhati .            <-- no Karaka: Anuvrtti as first statement
+# }
+
+# --- VIOLATION P2: Lopa-on-unwritten ---
+# P2 violation program:
+# tantrashastram {
+#     vacham lopah .       <-- Vak never written; Lopa is incoherent
+# }
+
+# --- VIOLATION P3: Vrddhi-on-Siddha ---
+# P3 violation program:
+# tantrashastram {
+#     vaagyanthraiah likhati .   <-- Ring 0 on Siddha target (0x30 < 0x50)
+# }
+#
+# NOTE: The pipeline embeds the three violation programs as UTF-8 inline
+# strings in run_rv32_paribhasha_pipeline.py (Part A). This file is the
+# human-readable documentation of what those programs contain.

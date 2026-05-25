@@ -1,0 +1,16 @@
+तन्त्रशास्त्रम् {
+    # SPRINT 3: Avrtti — Bounded Deterministic Repetition
+    #
+    # आवृत्तिः (Āvṛtti) — the rule repeats.
+    # The count (३ = 3) is encoded directly into the instruction word.
+    # This is not a runtime loop with a branch condition.
+    # The bound is declared in the rule itself — no branch predictor needed.
+    #
+    # Proof: Vak write executes exactly 3 times.
+    # UART will report each cycle. Final counter must equal 3.
+    आवृत्तिः ३ वाचम् लिखति ।
+
+    # Second rule: single Apavada store to Yantra under Ring 0.
+    # Proves Avrtti does not corrupt surrounding instruction context.
+    अपवादः श्रोत्रात् यन्त्रै स्थापयति ।
+}

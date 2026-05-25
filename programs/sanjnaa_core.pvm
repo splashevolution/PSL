@@ -1,0 +1,29 @@
+# SPRINT 6: Sanjnaa — Named Compile-Time Abstractions
+#
+# सञ्ज्ञा (Sañjñā) — a technical name assigned to a thing.
+# Pāṇini used Sañjñā to give short, precise names to complex elements.
+# Here: symbolic names for hardware device addresses.
+# The compiler resolves them at compile time.
+# The binary is byte-for-byte identical to writing the address directly.
+# Zero runtime overhead. Zero indirection. Pure source-level abstraction.
+#
+# Sañjñā declarations — compile-time symbol table
+सञ्ज्ञा वाक् = 0x30 ।
+सञ्ज्ञा श्रव = 0x50 ।
+सञ्ज्ञा यन्त्र = 0x60 ।
+
+तन्त्रशास्त्रम् {
+    # Instruction 1: Write using symbolic name वाक् (resolves to 0x30)
+    # Must compile identically to: वाचम् लिखति ।
+    वाक् लिखति ।
+
+    # Instruction 2: Write using symbolic name श्रव (resolves to 0x50)
+    # Asiddha region — shadow write, global bus unchanged
+    श्रव लिखति ।
+
+    # Instruction 3: Lopa via symbolic name — erase Vak, set boundary
+    वाक् लोपः ।
+
+    # Instruction 4: Anuvrtti after Lopa — inheritance blocked
+    लिखति ।
+}

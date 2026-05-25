@@ -1,0 +1,17 @@
+तन्त्रशास्त्रम् {
+    # SPRINT 4: Anuvrtti — Implicit Context Inheritance
+    #
+    # Anuvṛtti (अनुवृत्तिः) — "that which flows forward."
+    # A rule need not re-state what was already established by the preceding rule.
+    # The compiler inherits the missing element and marks the instruction as compressed.
+    #
+    # Instruction 1 — Explicit: target Vak stated directly.
+    # Compiles to COMPRESSION=0x0, TARGET=0x30
+    वाचम् लिखति ।
+
+    # Instruction 2 — Compressed: target omitted.
+    # By Anuvrtti, the compiler inherits Vak (0x30) from instruction 1.
+    # Compiles to COMPRESSION=0x1, TARGET=0x00
+    # Firmware expands it at decode time — same result, fewer bits used.
+    लिखति ।
+}
