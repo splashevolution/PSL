@@ -117,5 +117,36 @@ class SemanticContractTests(unittest.TestCase):
 
 
 
+    def test_asiddha_lopa_outside_scope_is_rejected(self):
+        source = """सञ्ज्ञा यन्त्र = 0x60 ।
+तन्त्रशास्त्रम् {
+    यन्त्र लिखति ।
+    यन्त्र लोपः ।
+}
+"""
+        with self.assertRaises(ParibhashaError) as ctx:
+            self.compile(source)
+        self.assertEqual(ctx.exception.rule_id, "P4")
+
+    def test_ring0_siddha_is_rejected(self):
+        source = """तन्त्रशास्त्रम् {
+    वाग्यन्थ्रैः लिखति ।
+}
+"""
+        with self.assertRaises(ParibhashaError) as ctx:
+            self.compile(source)
+        self.assertEqual(ctx.exception.rule_id, "P3")
+
+    def test_unclosed_adhikara_is_rejected(self):
+        source = """तन्त्रशास्त्रम् {
+    अधिकारः {
+        यन्त्र स्थापयति ।
+"""
+        with self.assertRaises(ParibhashaError) as ctx:
+            self.compile(source)
+        self.assertEqual(ctx.exception.rule_id, "P4")
+
+
+
 if __name__ == "__main__":
     unittest.main()
