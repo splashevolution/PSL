@@ -194,7 +194,7 @@ simultaneous authorities.
 
 ---
 
-## G7 — Historical examples cross semantic eras — OPEN
+## G7 — Historical examples cross semantic eras — RESOLVED
 
 Some files in `programs/` encode assumptions that later rules invalidate.
 
@@ -208,8 +208,20 @@ Known examples include:
 - `sandhi_core.pvm`: its historical pair predates the later privileged-Store
   contract.
 
-These files must be either rewritten to the canonical language or explicitly
-moved/classified as historical fixtures before current end-to-end tests rely on them.
+### Repair
+
+The pre-repair text of all four conflicting examples is preserved under
+`programs/historical/`.
+
+The active examples were rewritten to the canonical contract:
+
+- active `lopa_core.pvm` stops at the Lopa boundary;
+- active `sandhi_core.pvm` uses a scoped same-ring Store/Store pair;
+- active `paribhasha_valid_core.pvm` scopes its privileged Store;
+- active `key_lifecycle.pvm` removes the inherited Lopa through the boundary.
+
+`tests/test_canonical_programs.py` locks exact ABI output for the four repaired
+programs and confirms the other current scoped examples compile.
 
 ---
 
@@ -227,3 +239,36 @@ moved/classified as historical fixtures before current end-to-end tests rely on 
 A green proof obtained by changing only Lean is not sufficient. Compiler,
 formal model, executable runtime, examples, and documentation must describe
 the same language.
+
+
+---
+
+## G8 — Python compiler to Lean semantics — PARTIALLY CLOSED
+
+A universal source/compiler correspondence is still open because the Python
+parser/compiler has not been formalized in Lean.
+
+However, the repair branch now has a concrete cross-language gate:
+
+1. Python compiles the checked-in canonical programs.
+2. A deterministic generator produces additional sources from the currently
+   formalized subset.
+3. Their exact numeric 32-bit binaries are emitted into an auto-generated Lean
+   file.
+4. Lean independently decodes those words with `decodeABIWord`.
+5. Lean requires `validateEncodedClosed ... = true` for every accepted stream.
+6. Every distinct emitted ABI word is required to round-trip through the Lean
+   numeric decoder.
+7. Separate adversarial numeric streams are required to evaluate to rejection.
+
+Current passing corpus:
+
+- 8 checked-in canonical programs;
+- 57 deterministic generated variants;
+- 65 accepted word streams total;
+- 22 distinct ABI words;
+- fixed negative cases for context, scope, privilege, P2, and Lopa boundaries.
+
+This is strong finite conformance evidence, **not** a proof for all Python source
+programs. The remaining research obligation is a formal source/IR
+correspondence or a proof-producing compiler/certificate design.
