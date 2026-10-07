@@ -69,7 +69,7 @@ def lean_ident(label):
 
 
 def emit_ir_certificate(lines, label, compiler, words):
-    ir = compiler._last_ir
+    ir = compiler.get_last_ir()
     name = lean_ident(label)
     lines.extend(
         [
