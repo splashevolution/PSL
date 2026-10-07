@@ -55,17 +55,17 @@ They should not be copied into new semantic-continuity modules.
 
 See `docs/TERMINOLOGY_AUDIT.md`.
 
-## Active formal milestone — RED-1
+## Active formal milestone — GREEN-1
 
-RED-1 now targets the precise gap between declared capability and realization correctness. The branch \`research/semantic-continuity-red1\` adds a machine-checked counterexample showing that two distinct target bindings for the same semantic script both pass the current capability-plus-lowering gate.
+RED-1 established that two distinct target bindings for the same semantic script both pass the capability-plus-lowering gate.
 
-The experiment is intentionally narrower than a device-correctness theorem: the current model cannot yet state why one binding is semantically faithful. That inability is the RED result.
+GREEN-1 adds the minimum missing formal boundary: a generic \`DeviceModel(Resource)\` that independently states what each target resource denotes, plus an executable \`checkBinding\` relation. The PVM32 witness accepts the reference binding and rejects the RED-1 adversarial binding without putting a physical address into the target-neutral semantic script.
 
-See \`docs/research/RED1_DISHONEST_BINDING.md\`.
+See \`docs/research/RED1_DISHONEST_BINDING.md\` and \`docs/research/GREEN1_DEVICE_BINDING_CHECK.md\`.
 
-The next GREEN step must distinguish correct from adversarial realization without hard-coding a physical address into the target-neutral semantic contract.
+This closes only binding correctness relative to a stated device model. Representation, units, protocol state, persistence, failure handling, and physical-device conformance remain open.
 
-The motivating case remains:
+The next falsification target is the same physical resource with a wrong representation:
 
 Example:
 

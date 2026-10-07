@@ -1,6 +1,7 @@
 import PSL.Semantics
 import PSL.PVM32Driver
 import PSL.SemanticContinuityRed1
+import PSL.SemanticContinuityGreen1
 
 #print axioms validateIRClosed_sound
 #print axioms validateWords_execution
@@ -11,3 +12,7 @@ import PSL.SemanticContinuityRed1
 
 #print axioms PSL.red1_bindings_are_distinct
 #print axioms PSL.red1_capability_gate_is_binding_blind
+
+#print axioms PSL.checkBinding_true_iff
+#print axioms PSL.green1_separates_red1_witness
+#print axioms PSL.green1_checked_binding_is_model_faithful
