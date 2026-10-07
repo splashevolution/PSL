@@ -5,7 +5,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src" / "utils"))
 
-from paninian_compiler import PaninianFormalCompiler, ParibhashaError
+from paninian_compiler import IRNode, PaninianFormalCompiler, ParibhashaError
 
 
 class SemanticContractTests(unittest.TestCase):
@@ -89,6 +89,31 @@ class SemanticContractTests(unittest.TestCase):
         words = self.compile(source)
         self.assertEqual(words[1], 0x00CC60F0)
         self.assertEqual(words[2], 0x01CC00F0)
+
+
+
+    def test_validator_rejects_ring2_store_even_inside_scope(self):
+        compiler = PaninianFormalCompiler()
+        nodes = [
+            IRNode(
+                ring=0, comp=0, opcode=compiler.OPCODE_ADHIKARA_OPEN,
+                target=0, cond=0, flags=compiler.FLAG_IMMEDIATE_LOPA,
+                source_line=1, source_text="open"
+            ),
+            IRNode(
+                ring=2, comp=0, opcode=compiler.OPCODE_STORE,
+                target=0x60, cond=0, flags=compiler.FLAG_IMMEDIATE_LOPA,
+                source_line=2, source_text="store"
+            ),
+            IRNode(
+                ring=0, comp=0, opcode=compiler.OPCODE_ADHIKARA_CLOSE,
+                target=0, cond=0, flags=compiler.FLAG_IMMEDIATE_LOPA,
+                source_line=3, source_text="close"
+            ),
+        ]
+        with self.assertRaises(ParibhashaError) as ctx:
+            compiler.validate_ir(nodes)
+        self.assertEqual(ctx.exception.rule_id, "P4")
 
 
 
