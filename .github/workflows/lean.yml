@@ -39,6 +39,14 @@ jobs:
           cd lean
           lake env lean GeneratedConformance.lean
 
+      - name: Check adversarial Lean rejection cases
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PATH="$HOME/.elan/bin:$PATH"
+          cd lean
+          lake env lean NegativeConformance.lean
+
       - name: Audit principal theorem dependencies
         shell: bash
         run: |
