@@ -1,7 +1,10 @@
 import PSL.Semantics
+import PSL.PVM32Driver
 
 #print axioms validateIRClosed_sound
 #print axioms validateWords_execution
 #print axioms validated_ir_executes
 #print axioms valid_program_executes
 #print axioms certified_ir_executes
+#print axioms PSL.english_and_devanagari_status_are_same_program
+#print axioms PSL.surface_choice_does_not_change_pvm32_realization
