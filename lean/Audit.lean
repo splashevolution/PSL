@@ -4,6 +4,7 @@ import PSL.SemanticContinuityRed1
 import PSL.SemanticContinuityGreen1
 import PSL.SemanticContinuityRed2
 import PSL.SemanticContinuityGreen2
+import PSL.SemanticContinuityRed3
 
 #print axioms validateIRClosed_sound
 #print axioms validateWords_execution
@@ -25,3 +26,6 @@ import PSL.SemanticContinuityGreen2
 #print axioms PSL.checkRepresentation_true_iff
 #print axioms PSL.green2_separates_red2_witness
 #print axioms PSL.green2_checked_representation_is_model_faithful
+
+#print axioms PSL.red3_writes_are_identical
+#print axioms PSL.red3_green2_is_protocol_blind

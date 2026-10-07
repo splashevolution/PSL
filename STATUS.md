@@ -55,7 +55,7 @@ They should not be copied into new semantic-continuity modules.
 
 See `docs/TERMINOLOGY_AUDIT.md`.
 
-## Active formal milestone — GREEN-2
+## Active formal milestone — RED-3
 
 RED-1 established that two distinct target bindings for the same semantic script both pass the capability-plus-lowering gate.
 
@@ -77,7 +77,13 @@ The composed GREEN-2 gate accepts the reference candidate and rejects the RED-2 
 
 See \`docs/research/GREEN2_REPRESENTATION_CHECK.md\`.
 
-Protocol state, ordering, acknowledgements, persistence, and physical-device conformance remain open.
+RED-3 now freezes the GREEN-2-correct resource and raw payload and mutates only the surrounding protocol trace. A machine-checked witness shows that both executions pass GREEN-2 because protocol/state behavior is outside its model.
+
+See \`docs/research/RED3_PROTOCOL_BLINDNESS.md\`.
+
+This establishes the next narrow gap: **binding correctness plus representation correctness is not protocol/state correctness**.
+
+Persistence, timing, and physical-device conformance remain open.
 
 The motivating case is:
 
