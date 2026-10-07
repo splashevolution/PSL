@@ -32,6 +32,63 @@ def lean_nat_list(words):
     return "[" + ", ".join(f"0x{w:08X}" for w in words) + "]"
 
 
+def lean_ir_node(node):
+    target = (
+        "none"
+        if node.target is None
+        else f"some (fin256 0x{node.target:02X})"
+    )
+    return (
+        "{ ring := fin16 0x%X, comp := fin16 0x%X, "
+        "opcode := fin256 0x%02X, target := %s, "
+        "cond := fin16 0x%X, flags := fin16 0x%X, "
+        "in_adhikara := %s, sandhi_fused := %s }"
+        % (
+            node.ring,
+            node.comp,
+            node.opcode,
+            target,
+            node.cond,
+            node.flags,
+            "true" if node.in_adhikara else "false",
+            "true" if node.sandhi_fused else "false",
+        )
+    )
+
+
+def lean_ir_list(ir):
+    if not ir:
+        return "[]"
+    body = ",\n    ".join(lean_ir_node(node) for node in ir)
+    return "[\n    " + body + "\n  ]"
+
+
+def lean_ident(label):
+    safe = "".join(ch if ch.isalnum() else "_" for ch in label)
+    return "pythonIR_" + safe
+
+
+def emit_ir_certificate(lines, label, compiler, words):
+    ir = compiler._last_ir
+    name = lean_ident(label)
+    lines.extend(
+        [
+            f"def {name} : List IRNode :=",
+            f"  {lean_ir_list(ir)}",
+            "",
+            f"example : validateIRClosed {name} = true := by",
+            "  native_decide",
+            "",
+            f"example : (lowerAll {name}).map ABIWord.toNat = {lean_nat_list(words)} := by",
+            "  native_decide",
+            "",
+            f"example : validateEncodedClosed {lean_nat_list(words)} = true := by",
+            "  native_decide",
+            "",
+        ]
+    )
+
+
 def generated_sources():
     """Yield deterministic valid sources from the proved control subset."""
     case = 0
@@ -136,27 +193,25 @@ def main():
     all_words = set()
     emitted_programs = 0
 
-    # Checked-in canonical examples.
+    # Checked-in canonical examples. Export Python's final IR as a Lean value,
+    # prove that Lean accepts it as a closed program, and independently check
+    # that Lean lowering produces the exact numeric words emitted by Python.
     for name in CANONICAL_PROGRAMS:
         source = (ROOT / "programs" / name).read_text(encoding="utf-8")
-        words = PaninianFormalCompiler().compile_source(source)
+        compiler = PaninianFormalCompiler()
+        words = compiler.compile_source(source)
         all_words.update(words)
         emitted_programs += 1
-        lines.extend(
-            [
-                f"-- {name}",
-                f"example : validateEncodedClosed {lean_nat_list(words)} = true := by",
-                "  native_decide",
-                "",
-            ]
-        )
+        lines.append(f"-- {name}")
+        emit_ir_certificate(lines, name, compiler, words)
 
     # Generated source corpus. Deduplicate identical binaries so Lean work is
     # proportional to semantic variety rather than template count.
     seen_word_streams = set()
     generated_count = 0
     for label, source in generated_sources():
-        words = PaninianFormalCompiler().compile_source(source)
+        compiler = PaninianFormalCompiler()
+        words = compiler.compile_source(source)
         key = tuple(words)
         if key in seen_word_streams:
             continue
@@ -164,14 +219,8 @@ def main():
         all_words.update(words)
         generated_count += 1
         emitted_programs += 1
-        lines.extend(
-            [
-                f"-- {label}",
-                f"example : validateEncodedClosed {lean_nat_list(words)} = true := by",
-                "  native_decide",
-                "",
-            ]
-        )
+        lines.append(f"-- {label}")
+        emit_ir_certificate(lines, label, compiler, words)
 
     # Every distinct ABI word observed from Python must round-trip through the
     # Lean numeric decoder.
@@ -188,7 +237,8 @@ def main():
     print(
         f"generated {output}: {emitted_programs} accepted word streams "
         f"({len(CANONICAL_PROGRAMS)} checked-in + {generated_count} generated), "
-        f"{len(all_words)} distinct ABI words"
+        f"{len(all_words)} distinct ABI words, "
+        f"{emitted_programs} Python-IR certificates"
     )
 
 
