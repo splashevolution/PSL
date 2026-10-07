@@ -177,28 +177,30 @@ def step (s : MachineState) (w : ABIWord) : Option MachineState :=
   if s.halted = true then none
   else
     let tgt := w.target.val
-    match w.opcode.val with
-    | 0x05 =>
-        if tgt < ASIDDHA_BASE then
-          some { s with
-            mem     := fun a => if a = tgt then 1 else s.mem a
-            written := markWritten s.written tgt }
-        else none
-    | 0xCC =>
-        if s.ring = 0 ∧ tgt ≥ ASIDDHA_BASE then
-          some { s with
-            mem     := fun a => if a = tgt then 1 else s.mem a
-            written := markWritten s.written tgt }
-        else none
-    | 0x00 =>
-        if s.ring = 0 ∧ (w.comp.val = 1 ∨ s.written tgt = true) then
-          some { s with
-            mem     := fun a => if a = tgt then 0 else s.mem a
-            written := markErased s.written tgt }
-        else none
-    | 0xAA => some { s with ring := 0 }
-    | 0xBB => some { s with ring := 2 }
-    | _    => some s
+    if w.opcode = OP_WRITE then
+      if tgt < ASIDDHA_BASE then
+        some { s with
+          mem     := fun a => if a = tgt then 1 else s.mem a
+          written := markWritten s.written tgt }
+      else none
+    else if w.opcode = OP_STORE then
+      if s.ring = 0 ∧ tgt ≥ ASIDDHA_BASE then
+        some { s with
+          mem     := fun a => if a = tgt then 1 else s.mem a
+          written := markWritten s.written tgt }
+      else none
+    else if w.opcode = OP_LOPA then
+      if s.ring = 0 ∧ (w.comp.val = 1 ∨ s.written tgt = true) then
+        some { s with
+          mem     := fun a => if a = tgt then 0 else s.mem a
+          written := markErased s.written tgt }
+      else none
+    else if w.opcode = OP_OPEN then
+      some { s with ring := 0 }
+    else if w.opcode = OP_CLOSE then
+      some { s with ring := 2 }
+    else
+      some s
 
 def execute (words : List ABIWord) (s0 : MachineState) : Option MachineState :=
   words.foldlM step s0
@@ -217,15 +219,15 @@ theorem lopa_requires_prior_write
     (hring       : s.ring = 0)
     (hnotwritten : s.written w.target.val = false)
     (hcomp       : w.comp.val ≠ 1)
-    (hop         : w.opcode.val = 0x00) :
+    (hop         : w.opcode = OP_LOPA) :
     step s w = none := by
-  simp [step, hh, hop, hring, hcomp, hnotwritten]
+  simp [step, hh, hop, OP_LOPA, OP_WRITE, OP_STORE, hring, hcomp, hnotwritten]
 
 theorem write_to_asiddha_fails
     (s : MachineState) (w : ABIWord)
     (hh   : s.halted = false)
     (htgt : w.target.val ≥ ASIDDHA_BASE)
-    (hop  : w.opcode.val = 0x05) :
+    (hop  : w.opcode = OP_WRITE) :
     step s w = none := by
   simp [step, hh, hop, htgt]
 
@@ -245,12 +247,14 @@ def closeWord : ABIWord :=
   , flags := ⟨0xF, by decide⟩
   , cond := ⟨0, by decide⟩ }
 
-theorem open_close_restores_ring
+/-- OPEN enters ring 0; CLOSE returns to PSL's designated user ring 2.
+    It does not restore an arbitrary prior ring. -/
+theorem open_close_returns_user_ring
     (s : MachineState)
     (hh : s.halted = false) :
     (step s openWord >>= fun s1 => step s1 closeWord).map (·.ring) =
-      some s.ring := by
-  simp [step, openWord, closeWord, OP_OPEN, OP_CLOSE, hh]
+      some 2 := by
+  simp [step, openWord, closeWord, OP_OPEN, OP_CLOSE, OP_WRITE, OP_STORE, OP_LOPA, hh]
 
 -- §8 Compiler soundness: explicitly open --------------------------------------
 
