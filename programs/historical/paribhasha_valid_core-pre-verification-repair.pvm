@@ -1,0 +1,27 @@
+# SPRINT 7: Paribhasha — Valid Program (must compile and execute cleanly)
+#
+# This program obeys all three Paribhasha constraints:
+#   P1: No Anuvrtti as first statement
+#   P2: Lopa only after a write to the same target
+#   P3: Vrddhi (Ring 0) only on Asiddha targets (>= 0x50)
+#
+# The compiler accepts this. The firmware executes it. Both proofs together
+# demonstrate that Paribhasha rejects exactly what is wrong and permits
+# exactly what is right — nothing more, nothing less.
+
+सञ्ज्ञा वाक् = 0x30 ।
+सञ्ज्ञा यन्त्र = 0x60 ।
+
+तन्त्रशास्त्रम् {
+    # Valid: explicit write to Vak first (P1 satisfied — not Anuvrtti at start)
+    वाक् लिखति ।
+
+    # Valid: Anuvrtti after explicit write (P1 satisfied — context exists)
+    लिखति ।
+
+    # Valid: Lopa after write to same target (P2 satisfied)
+    वाक् लोपः ।
+
+    # Valid: Vrddhi store to Yantra (0x60 >= 0x50, Asiddha) (P3 satisfied)
+    यन्त्रै स्थापयति ।
+}
