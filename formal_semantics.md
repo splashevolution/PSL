@@ -282,9 +282,17 @@ After processing node n:
        ∧ n.comp ≠ COMP_ANUVRTTI
        ∧ n.target ≠ ⊥
     then W := W ∪ {n.target}
+
+    if n.opcode = 0x00
+       ∧ n.comp ≠ COMP_ANUVRTTI
+       ∧ n.target ≠ ⊥
+    then W := W \ {n.target}
 ```
 
-Lopa consults `W` (P2); it does not update it.
+Explicit Lopa therefore **consumes** the live-written state for its target.
+A second explicit Lopa requires an intervening Write/Store. Anuvrtti Lopa is
+treated as a chained operation whose effective target is resolved from runtime
+context; its precise source/runtime refinement remains an open formal obligation.
 
 ---
 
