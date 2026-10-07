@@ -23,9 +23,9 @@
 > - proves, without a PSL project axiom, `validateWords_execution`,
 >   `validated_ir_executes`, and `valid_program_executes`;
 > - runs Python semantic-contract tests for the corresponding compiler rules;
-> - audits principal theorem dependencies for `sorryAx` and the retired PSL axiom.
+> - audits principal theorem dependencies for `sorryAx` and the retired PSL axiom;\n> - cross-checks 65 Python-compiler word streams (8 checked-in + 57 generated) in Lean, covering 22 distinct ABI words;\n> - requires fixed adversarial ABI streams to be rejected independently by Lean;\n> - preserves contradictory pre-repair programs/specs under historical paths while active examples follow one canonical contract.
 >
-> **Still open:** Python compiler → Lean `ValidProgram` correspondence,
+> **Still open:** universal Python source/compiler → Lean correspondence (the current 65-stream bridge is finite conformance evidence),
 > Āvṛtti/conditional/Sandhi formal semantics, one canonical RV32 refinement,
 > and physical-hardware evidence.
 >
