@@ -10,6 +10,32 @@ Can concepts inspired by Pāṇini's *Aṣṭādhyāyī* be expressed as useful 
 
 Claims that PSL is generally leaner, faster, safer, or more deterministic than conventional systems remain **research hypotheses** until they are supported by controlled comparisons and stronger refinement proofs.
 
+## Semantic Script Experiment
+
+The `feature/semantic-script-kernel` line of work separates **meaning** from
+both human vocabulary and target hardware.
+
+```text
+surface text
+   -> SemanticScript
+   -> Lean-checked semantic/driver boundary
+   -> target driver
+   -> realization
+```
+
+A `SemanticId` is neither a word nor an address. English, Devanagari, future
+visual/AI surfaces, and other notations may elaborate to the same semantic
+script. Target bindings belong to drivers.
+
+The first formal witness proves that the English surface `write status` and
+the Devanagari surface `स्थितिः लिखति ।` denote the same explicit
+`SemanticScript`, and PVM32 Driver 0 realizes both as `0x200520F0` through
+a driver-owned `SemanticId(1001) -> 0x20` binding.
+
+This is deliberately a small witness, not a claim of universal natural-language
+parsing or universal hardware portability. See
+[`docs/SEMANTIC_ARCHITECTURE.md`](docs/SEMANTIC_ARCHITECTURE.md).
+
 ## Current Verification Status
 
 The current repaired formal core is typechecked in CI with pinned **Lean 4.34.1**.
