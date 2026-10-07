@@ -1,3 +1,5 @@
+import Std.Tactic
+
 namespace PSL
 
 /-
