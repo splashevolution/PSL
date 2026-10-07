@@ -1,0 +1,24 @@
+name: Lean verification
+
+on:
+  pull_request:
+    branches: ["main"]
+  push:
+    branches: ["repair/verification-contract"]
+  workflow_dispatch:
+
+jobs:
+  lean:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: leanprover/lean-action@v1
+        with:
+          auto-config: false
+          build: false
+          test: false
+          lint: false
+      - name: Typecheck PSL Lean project
+        run: |
+          cd lean
+          lake build
