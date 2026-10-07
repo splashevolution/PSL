@@ -335,8 +335,7 @@ class PaninianFormalCompiler:
     # Sprint 8: Prakriya -- AST -> IRNode
     # ------------------------------------------------------------------
 
-    def _build_ir_node(self, ast, source_line, source_text, prev_target=None,
-                       adhikara_depth=0):
+    def _build_ir_node(self, ast, source_line, source_text, adhikara_depth=0):
         """
         Convert a single-statement AST into one or more IRNodes.
         adhikara_depth: current scope nesting level at this line.
@@ -647,7 +646,6 @@ class PaninianFormalCompiler:
         if isinstance(source_or_ir, str):
             self._parse_sanjnaa(source_or_ir)
             ir_list = []
-            prev_target    = 0x00
             adhikara_depth = 0
             for line_number, raw_line in enumerate(source_or_ir.splitlines(), 1):
                 statement = raw_line.split("#", 1)[0].strip()
@@ -669,13 +667,11 @@ class PaninianFormalCompiler:
                 stmt_ast  = self.parse(self.lex(statement))
                 new_nodes = self._build_ir_node(
                     stmt_ast, line_number, statement,
-                    prev_target=prev_target, adhikara_depth=adhikara_depth
+                    adhikara_depth=adhikara_depth
                 )
                 for node in new_nodes:
                     if node.opcode == self.OPCODE_ADHIKARA_OPEN:
                         adhikara_depth += 1
-                    elif node.comp != self.COMP_ANUVRTTI and node.target is not None:
-                        prev_target = node.target
                 ir_list.extend(new_nodes)
             ir_list = self.sandhi_pass(ir_list)
         else:
@@ -704,7 +700,6 @@ class PaninianFormalCompiler:
         self._parse_sanjnaa(code)
 
         ir_list        = []
-        prev_target    = 0x00
         adhikara_depth = 0
 
         for line_number, raw_line in enumerate(code.splitlines(), 1):
@@ -730,7 +725,7 @@ class PaninianFormalCompiler:
             stmt_ast  = self.parse(self.lex(statement))
             new_nodes = self._build_ir_node(
                 stmt_ast, line_number, statement,
-                prev_target=prev_target, adhikara_depth=adhikara_depth
+                adhikara_depth=adhikara_depth
             )
 
             if not new_nodes:
@@ -742,8 +737,6 @@ class PaninianFormalCompiler:
             for node in new_nodes:
                 if node.opcode == self.OPCODE_ADHIKARA_OPEN:
                     adhikara_depth += 1
-                elif node.comp != self.COMP_ANUVRTTI and node.target is not None:
-                    prev_target = node.target
 
             ir_list.extend(new_nodes)
 
