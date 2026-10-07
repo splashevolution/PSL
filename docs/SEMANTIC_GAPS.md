@@ -44,7 +44,7 @@ make this choice without updating all layers together.
 
 ---
 
-## G2 — P2 written-state lifetime is inconsistent after Lopa
+## G2 — P2 written-state lifetime after Lopa — DECISION ADOPTED
 
 ### Python compiler
 `validate_ir` adds explicit WRITE/STORE targets to `written_targets` but
@@ -66,16 +66,10 @@ matching the runtime rather than the Python compiler.
 The old `p2_runtime_correctness` axiom attempted to bridge two state machines
 that do not implement the same invariant.
 
-### Decision required
-Choose one meaning:
+### Decision
+**A — live-written semantics is adopted on the repair branch.** Explicit Lopa consumes the written state. A second explicit Lopa requires another WRITE/STORE first.
 
-A. **Live-written semantics**: Lopa consumes the written state. A second
-   explicit Lopa requires another WRITE/STORE first.
-B. **Ever-written semantics**: once written, an address remains P2-eligible
-   even after Lopa; runtime must stop rejecting the second explicit Lopa.
-
-The lifecycle/erasure interpretation and runtime behavior favor **A**, but this
-must be adopted explicitly and regression-tested.
+Implementation: the Python compiler now discards the target from `written_targets` after an explicit Lopa. Regression tests cover double-Lopa rejection and write-after-Lopa re-establishment. The executable runtime already follows this lifecycle. The Lean model must be rebuilt to the same rule before compiler soundness is attempted.
 
 ---
 
