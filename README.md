@@ -1,34 +1,43 @@
 # Paninian Systems Language (PSL)
 
-**PSL is a Paninian type system for verifiable embedded firmware.** It maps the structural rules of Panini's *Astadhyayi* (4th c. BCE) directly onto instruction-set semantics, with the goal of making entire classes of embedded bugs *structurally inexpressible* rather than merely caught at runtime.
+**PSL is a research prototype for applying Paninian structural concepts to a small systems language and embedded-firmware execution model.** The project explores whether compile-time structural rules can make selected classes of invalid programs unrepresentable or reject them before execution.
 
-The project pairs a working compiler and RISC-V firmware pipeline with machine-checked formal semantics in **Lean 4**.
+The repository contains a compiler, a freestanding RV32/QEMU firmware pipeline, differential tests, and a Lean 4 abstract semantics. These layers provide different kinds of evidence and are intentionally distinguished below.
 
-## The Thesis
+## Research Question
 
-Modern hardware/software stacks are bloated because they lack semantic precision at the ISA level. The *Astadhyayi* is a formally complete, unambiguous rule system — every derivation is either provably valid or structurally impossible. PSL applies those principles to a real instruction set and proves, at each step on freestanding RV32 firmware under QEMU, that Paninian logic yields a leaner, more deterministic execution model than the heuristic layers modern systems accumulate.
+PSL investigates whether concepts inspired by Pāṇini's *Aṣṭādhyāyī* can be expressed as useful compiler and machine invariants for embedded systems.
 
-## Status
+The stronger claims — that this approach is generally leaner, faster, safer, or more deterministic than conventional systems techniques — remain **research hypotheses** and require controlled comparative evidence.
 
-- **15 proof sprints** complete
-- **206 machine-checked assertions** (153 firmware checks on RV32 QEMU + 53 verified-compilation checks)
-- **Differential testing:** 5000/5000 passing
-- **Lean 4 formal spec:** `compile_sound` proved (zero `sorry`s, one axiom)
-- **Paper:** 12 pages, clean citations and tables
-- Three real-world verticals complete (Sprints 11–13)
+## Verification Status
 
-> Research prototype. Proofs establish system-emulated MMIO output and RAM-backed decoder state under QEMU. They do **not** yet establish execution on physical silicon or an HDL gate-array implementation.
+- **15 historical development sprints**
+- **RV32/QEMU execution evidence:** self-asserting firmware pipelines and captured UART/MMIO behaviour
+- **Differential testing:** historical run reported 5000/5000 generated cases passing
+- **Lean 4:** machine-checked abstract semantics and several closed theorems
+- **Principal soundness theorem:** currently **axiom-dependent** through `p2_runtime_correctness`
+- **Physical RISC-V silicon:** not yet established
+- **Source-to-RV32 semantic refinement:** not yet proved
+
+The authoritative claim ledger is [`docs/VERIFICATION_STATUS.md`](docs/VERIFICATION_STATUS.md).
+
+> **Important:** a passing QEMU test is executable evidence, not a mathematical proof. A Lean theorem about PSL's abstract machine is not automatically a theorem about the RV32 implementation or physical hardware.
 
 ## Core Ideas
 
-PSL maps Paninian grammatical concepts to machine semantics:
+PSL maps selected Paninian grammatical concepts to machine semantics:
 
-- **Karakas (data-flow relations)** — source (*apadana*), destination (*karman*), instrument (*karana*), and context (*adhikarana*) map to registers, memory, buses, and execution context
-- **Anuvrtti (context inheritance)** — omitted operands are inherited from the preceding instruction, compressing code footprint
-- **Avrtti (bounded repetition)** — loop counts are a structural property of the instruction word, eliminating off-by-one risk
-- **Lopa (structured erasure)** — nullification with explicit boundary effects
-- **Vrddhi (privilege escalation)** — structural expansion triggers Ring 0 clearance
-- **Siddha / Asiddha visibility** — a deterministic globally-visible vs. shadow-cache memory model
+- **Kārakas (data-flow relations)** — source (*apādāna*), destination (*karman*), instrument (*karaṇa*), and context (*adhikaraṇa*) map to registers, memory, buses, and execution context
+- **Anuvṛtti (context inheritance)** — omitted operands inherit context from a preceding instruction
+- **Āvṛtti (bounded repetition)** — a repetition count is encoded structurally in the instruction word
+- **Lopa (structured erasure)** — explicit nullification with boundary effects
+- **Vṛddhi (privilege role)** — maps selected operations into the privileged model
+- **Siddha / Asiddha visibility** — a deterministic visible/shadow state partition in the PSL model
+- **Adhikāra (scope)** — an explicit lexical domain for privileged operations
+- **Paribhāṣā (legality rules)** — compiler predicates that reject specified invalid structures
+
+These are PSL abstractions. Similar concepts exist in conventional compiler, type-system, capability, privilege, and state-machine designs; PSL's research question is whether this particular structural formulation is useful.
 
 ## Bytecode / ABI
 
@@ -39,49 +48,70 @@ Every operation compiles to a fixed **32-bit, big-endian** instruction word:
 RING_ID | COMP | OPCODE | TARGET | FLAGS/COND
 ```
 
-A rigid layout eliminates decoding drift and keeps binaries predictable and inspectable.
+The fixed layout is intended to keep decoding predictable and inspectable.
 
 ## Repository Layout
 
-- `src/` — the PSL compiler and RV32 firmware sources
-- `lean/` — Lean 4 formal semantics and machine-checked proofs
-- `programs/` — the `.pvm` source programs (one per sprint)
-- `paper/` — the LaTeX paper and generated PDF
-- `docs/` — specification and supporting documentation
-- `evidence/` — per-sprint proof artifacts and captured UART traces
-- `run_rv32_*_pipeline.py` — self-asserting build/execute/verify pipelines
-- `run_verified_compilation_proof.py`, `run_differential_tests.py` — proof and differential-test drivers
-- `SPEC.md`, `STATUS.md`, `formal_semantics.md` — deep-dive references
+- `src/` — PSL compiler and RV32 firmware sources
+- `lean/` — Lean 4 abstract semantics and machine-checked results
+- `programs/` — `.pvm` example programs
+- `paper/` — accompanying research manuscript
+- `docs/` — specification and verification status
+- `evidence/` — per-sprint execution artifacts and captured UART traces
+- `run_rv32_*_pipeline.py` — build/execute/verify pipelines under QEMU
+- `run_verified_compilation_proof.py` — executable verification harness; despite the historical filename, not all checks are mathematical proofs
+- `run_differential_tests.py` — generated differential-test driver
+- `SPEC.md`, `STATUS.md`, `formal_semantics.md` — deeper technical documentation
 
-## How the Proofs Work
+## Evidence Model
 
-Each sprint produces one concept, one `.pvm` source file, one compiler extension, one firmware, and one self-asserting pipeline. A pipeline builds the firmware, embeds the compiled binary, runs it under QEMU (`-M virt -bios none`), captures UART output at MMIO `0x10000000`, and asserts the expected markers. **The proof is the test passing — not a simulation.**
+PSL uses four distinct evidence classes:
+
+1. **Lean proofs** — propositions checked by the Lean kernel.
+2. **Axiom-dependent Lean results** — checked conditional on explicit project assumptions.
+3. **Executable tests** — Python, compiler, firmware, and QEMU observations.
+4. **Research hypotheses** — claims requiring further proof or comparative experimentation.
+
+These categories must not be conflated. See `docs/VERIFICATION_STATUS.md` for the current claim-by-claim classification.
+
+## Current Formal Blocker
+
+The principal formal gap is the relation between compile-time P2 tracking and the runtime `MachineState.written` state. The current Lean development names this assumption:
+
+```lean
+axiom p2_runtime_correctness ...
+```
+
+Closing that forward-simulation obligation is the next verification priority. Until it is removed, `compile_sound` should be described as **axiom-dependent**, not as a fully closed compiler-correctness proof.
 
 ## Getting Started
 
-Prerequisites: Python 3.10+, a RISC-V toolchain (`riscv64-unknown-elf-gcc`), and `qemu-system-riscv32`. A `Dockerfile` is provided for a reproducible environment.
+Prerequisites for the RV32 path include Python 3.10+, a RISC-V toolchain, and `qemu-system-riscv32`.
 
 ```bash
-# Run the verified compilation proof
+# Executable verification harness
 python run_verified_compilation_proof.py
 
-# Run the differential test suite
+# Differential tests
 python run_differential_tests.py
 
-# Run a specific RV32 firmware sprint pipeline
+# Example RV32/QEMU pipeline
 python run_rv32_conditional_pipeline.py
 ```
 
-See `STATUS.md` for the full toolchain flags and the per-sprint history.
+For the Lean development, use the files under `lean/` and typecheck them with the repository's Lean/Lake configuration.
 
 ## Documentation
 
+- `docs/VERIFICATION_STATUS.md` — authoritative claim ledger and repair gate
 - `SPEC.md` — language and VM specification
-- `formal_semantics.md` — formal semantics
-- `STATUS.md` — sprint-by-sprint history and current state
-- `paper/` — the accompanying paper
-- `comparative_examples.md` — PSL vs. conventional examples
+- `formal_semantics.md` — formal-semantics design document
+- `STATUS.md` — historical sprint record
+- `paper/` — accompanying manuscript
+- `comparative_examples.md` — PSL/conventional examples
 
-## Topics
+## Project Scope
 
-compiler · firmware · dsl · embedded-systems · type-theory · formal-methods · sanskrit · compcert · formal-verification · risc-v · panini · lean4
+PSL is currently a **research prototype**. Its QEMU evidence does not establish behaviour on physical silicon, and its abstract Lean semantics do not yet have a proved refinement to the RV32 firmware implementation.
+
+compiler · firmware · dsl · embedded-systems · type-theory · formal-methods · sanskrit · risc-v · panini · lean4
