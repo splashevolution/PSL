@@ -30,6 +30,15 @@ jobs:
           cd lean
           lake build
 
+      - name: Cross-check canonical Python compiler output in Lean
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PATH="$HOME/.elan/bin:$PATH"
+          python scripts/generate_lean_conformance.py lean/GeneratedConformance.lean
+          cd lean
+          lake env lean GeneratedConformance.lean
+
       - name: Audit principal theorem dependencies
         shell: bash
         run: |
