@@ -55,11 +55,17 @@ They should not be copied into new semantic-continuity modules.
 
 See `docs/TERMINOLOGY_AUDIT.md`.
 
-## Next formal milestone
+## Active formal milestone — RED-1
 
-The next research milestone should establish a RED case where the current
-system cannot distinguish a declared capability from a semantically correct
-realization.
+RED-1 now targets the precise gap between declared capability and realization correctness. The branch \`research/semantic-continuity-red1\` adds a machine-checked counterexample showing that two distinct target bindings for the same semantic script both pass the current capability-plus-lowering gate.
+
+The experiment is intentionally narrower than a device-correctness theorem: the current model cannot yet state why one binding is semantically faithful. That inability is the RED result.
+
+See \`docs/research/RED1_DISHONEST_BINDING.md\`.
+
+The next GREEN step must distinguish correct from adversarial realization without hard-coding a physical address into the target-neutral semantic contract.
+
+The motivating case remains:
 
 Example:
 
