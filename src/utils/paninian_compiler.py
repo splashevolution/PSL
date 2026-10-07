@@ -522,22 +522,35 @@ class PaninianFormalCompiler:
             # Store is PSL's privileged shadow-write operation and therefore
             # always requires an Adhikara scope.  Lopa requires privilege only
             # when its resolved target is Asiddha.
-            if node.opcode == self.OPCODE_STORE and adhikara_depth == 0:
-                raise ParibhashaError(
-                    "P4", "Store-outside-scope",
-                    node.source_line, node.source_text,
-                    "Store is a privileged operation and requires Adhikara"
-                )
+            if node.opcode == self.OPCODE_STORE:
+                if adhikara_depth == 0:
+                    raise ParibhashaError(
+                        "P4", "Store-outside-scope",
+                        node.source_line, node.source_text,
+                        "Store is a privileged operation and requires Adhikara"
+                    )
+                if node.ring != 0x00:
+                    raise ParibhashaError(
+                        "P4", "Store-without-Ring0",
+                        node.source_line, node.source_text,
+                        "Store inside Adhikara must carry Ring 0"
+                    )
 
             if (node.opcode == self.OPCODE_LOPA
                     and effective_target is not None
-                    and effective_target >= self.ASIDDHA_BASE
-                    and adhikara_depth == 0):
-                raise ParibhashaError(
-                    "P4", "Asiddha-lopa-outside-scope",
-                    node.source_line, node.source_text,
-                    "Lopa on an Asiddha target requires Adhikara"
-                )
+                    and effective_target >= self.ASIDDHA_BASE):
+                if adhikara_depth == 0:
+                    raise ParibhashaError(
+                        "P4", "Asiddha-lopa-outside-scope",
+                        node.source_line, node.source_text,
+                        "Lopa on an Asiddha target requires Adhikara"
+                    )
+                if node.ring != 0x00:
+                    raise ParibhashaError(
+                        "P4", "Asiddha-lopa-without-Ring0",
+                        node.source_line, node.source_text,
+                        "Lopa on an Asiddha target must carry Ring 0"
+                    )
 
             node.constraints.append("P4-ok")
 
