@@ -55,8 +55,8 @@
             <div class="status-row" aria-label="Project status">
               <span class="status-chip"><i class="chip-dot amber" aria-hidden="true"></i>Research prototype</span>
               <span class="status-chip"><i class="chip-dot blue" aria-hidden="true"></i>Lean 4</span>
-              <span class="status-chip"><i class="chip-dot blue" aria-hidden="true"></i>CI-backed verification</span>
-              <span class="status-chip"><i class="chip-dot muted" aria-hidden="true"></i>PVM32 / RV32 Driver 0</span>
+              <span class="status-chip"><i class="chip-dot blue" aria-hidden="true"></i>CI-backed formal line</span>
+              <span class="status-chip"><i class="chip-dot muted" aria-hidden="true"></i>PVM32 Driver 0</span>
             </div>
           </div>
 
@@ -72,7 +72,7 @@
             <div class="orbit-label label-word"><span>WORD</span><b>≠</b></div>
             <div class="orbit-label label-meaning"><span>MEANING</span><b>≠</b></div>
             <div class="orbit-label label-address"><span>HARDWARE<br />ADDRESS</span></div>
-            <p class="orbit-note"><span class="line-icon" aria-hidden="true">↗</span> One semantic identity.<br />Many lawful surfaces and realizations.</p>
+            <p class="orbit-note"><span class="line-icon" aria-hidden="true">↗</span> Hypothesis: plural surfaces<br />and realizations can share one semantic identity.</p>
           </div>
         </div>
         <div class="hero-rule" aria-hidden="true"><span></span><span></span><span></span></div>
@@ -101,7 +101,7 @@
               <div class="flow-arrow" aria-hidden="true">↓</div>
               <div class="flow-step elaboration-step">
                 <span class="flow-number">02</span>
-                <div><strong>Semantic Elaboration</strong><small>surface-specific, meaning-preserving</small></div>
+                <div><strong>Semantic Elaboration</strong><small>surface-specific; preservation is a proof obligation</small></div>
               </div>
               <div class="flow-arrow" aria-hidden="true">↓</div>
               <div class="flow-step script-step featured-step">
@@ -117,7 +117,7 @@
               <div class="flow-arrow" aria-hidden="true">↓</div>
               <div class="flow-step intent-step">
                 <span class="flow-number">05</span>
-                <div><strong>Verified Semantic Intent</strong><small>the meaning a driver is allowed to realize</small></div>
+                <div><strong>Lean-checked Semantic Intent</strong><small>the meaning a driver is allowed to realize</small></div>
               </div>
               <div class="flow-arrow" aria-hidden="true">↓</div>
               <div class="driver-band">
@@ -127,8 +127,8 @@
                 </div>
                 <div class="target-grid" aria-label="Example target drivers">
                   <div class="target-card"><strong>PVM32</strong><small>Driver 0</small></div>
-                  <div class="target-card"><strong>Modern</strong><small>targets</small></div>
-                  <div class="target-card"><strong>Legacy</strong><small>device</small></div>
+                  <div class="target-card"><strong>Modern</strong><small>proposed target</small></div>
+                  <div class="target-card"><strong>Legacy</strong><small>planned target</small></div>
                 </div>
               </div>
             </div>
@@ -223,13 +223,13 @@
             </div>
             <p class="section-summary">A passing QEMU run is executable evidence. A Lean theorem is a theorem about the model it states. Neither automatically proves the other.</p>
           </div>
-          <div class="evidence-table">
-            <div class="evidence-row evidence-header"><span>Evidence type</span><span>What it can support</span><span>Boundary</span></div>
-            <div class="evidence-row"><span class="evidence-name"><i class="evidence-icon test" aria-hidden="true">✓</i>Compiler regression tests</span><span>Expected compiler behavior on covered cases</span><span class="boundary-tag test-tag">test evidence</span></div>
-            <div class="evidence-row"><span class="evidence-name"><i class="evidence-icon bridge" aria-hidden="true">↔</i>Finite Python → Lean conformance</span><span>Agreement on the enumerated accepted streams</span><span class="boundary-tag bridge-tag">finite evidence</span></div>
-            <div class="evidence-row"><span class="evidence-name"><i class="evidence-icon lean" aria-hidden="true">λ</i>Lean abstract-machine theorems</span><span>Properties of the formal model and stated assumptions</span><span class="boundary-tag lean-tag">theorem</span></div>
-            <div class="evidence-row"><span class="evidence-name"><i class="evidence-icon qemu" aria-hidden="true">▶</i>Historical QEMU execution</span><span>Observed behavior of a system-emulated target</span><span class="boundary-tag qemu-tag">execution evidence</span></div>
-            <div class="evidence-row"><span class="evidence-name"><i class="evidence-icon open" aria-hidden="true">○</i>Hardware / refinement obligations</span><span>Open work required to connect models to silicon</span><span class="boundary-tag open-tag">unproved</span></div>
+          <div class="evidence-table" role="table" aria-label="Evidence boundary map">
+            <div class="evidence-row evidence-header" role="row"><span role="columnheader">Evidence type</span><span role="columnheader">What it can support</span><span role="columnheader">Boundary</span></div>
+            <div class="evidence-row" role="row"><span class="evidence-name" role="cell"><i class="evidence-icon test" aria-hidden="true">✓</i>Compiler regression tests</span><span role="cell">Expected compiler behavior on covered cases</span><span class="boundary-tag test-tag" role="cell">test evidence</span></div>
+            <div class="evidence-row" role="row"><span class="evidence-name" role="cell"><i class="evidence-icon bridge" aria-hidden="true">↔</i>Finite Python → Lean conformance</span><span role="cell">Agreement on the enumerated accepted streams</span><span class="boundary-tag bridge-tag" role="cell">finite evidence</span></div>
+            <div class="evidence-row" role="row"><span class="evidence-name" role="cell"><i class="evidence-icon lean" aria-hidden="true">λ</i>Lean abstract-machine theorems</span><span role="cell">Properties of the formal model and stated assumptions</span><span class="boundary-tag lean-tag" role="cell">theorem</span></div>
+            <div class="evidence-row" role="row"><span class="evidence-name" role="cell"><i class="evidence-icon qemu" aria-hidden="true">▶</i>Historical QEMU execution</span><span role="cell">Observed behavior of a system-emulated target</span><span class="boundary-tag qemu-tag" role="cell">execution evidence</span></div>
+            <div class="evidence-row" role="row"><span class="evidence-name" role="cell"><i class="evidence-icon open" aria-hidden="true">○</i>Hardware / refinement obligations</span><span role="cell">Open work required to connect models to silicon</span><span class="boundary-tag open-tag" role="cell">unproved</span></div>
           </div>
           <div class="proof-chain" aria-label="Evidence chain from surface expression to machine device, with open boundaries visible"><span>surface</span><i>→</i><span>elaboration</span><i>→</i><span class="chain-trusted">Lean meaning</span><i>→</i><span>driver</span><i>→</i><span class="chain-open">machine / device</span></div>
         </div>
@@ -273,8 +273,8 @@
               <div class="legacy-script">same <strong>SemanticScript</strong></div>
               <div class="legacy-branches" aria-hidden="true"><span></span><span></span></div>
               <div class="legacy-targets">
-                <div class="legacy-target"><strong>modern driver</strong><small>modern target</small></div>
-                <div class="legacy-target"><strong>legacy driver</strong><small>primitive old protocol</small><b>↓</b><em>QEMU device</em></div>
+                <div class="legacy-target"><strong>modern driver</strong><small>proposed modern target</small></div>
+                <div class="legacy-target"><strong>legacy driver</strong><small>planned legacy target · primitive old protocol</small><b>↓</b><em>QEMU device</em></div>
               </div>
             </div>
           </div>

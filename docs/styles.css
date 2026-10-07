@@ -118,6 +118,20 @@ h3 { margin: .7rem 0 .65rem; font-size: 1.25rem; font-weight: 650; letter-spacin
 .legacy-target:last-child { border-color: #9a7045; background: #2a251f; }
 .legacy-target:last-child small { color: var(--warm-soft); }
 
+/* AA-safe text shades for the existing small-label hierarchy. */
+.orbit-note { color: #a7b5b4; }
+.architecture-note, .architecture-foot { color: #5f6f73; }
+.flow-step small { color: #52656a; }
+.flow-number { color: #5b6b71; }
+.target-card small { color: #52646a; }
+.code-label { color: #aabcc0; }
+.evidence-header { color: #a4b1b2; }
+.proof-chain { color: #a4b2b3; }
+.metric-label { color: #53686d; }
+.metric-number small { color: #596a6d; }
+.state-metric p { color: #526366; }
+.path-card > span, .path-card small { color: #53666a; }
+
 @media (max-width: 480px) {
   .hero { padding-top: 3.4rem; padding-bottom: 3.5rem; }
   .hero-grid { gap: 1.5rem; }
