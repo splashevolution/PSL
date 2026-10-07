@@ -15,12 +15,12 @@ The stronger claims — that this approach is generally leaner, faster, safer, o
 - **15 historical development sprints**
 - **RV32/QEMU execution evidence:** self-asserting firmware pipelines and captured UART/MMIO behaviour
 - **Differential testing:** historical run reported 5000/5000 generated cases passing
-- **Lean 4:** machine-checked abstract semantics and several closed theorems
-- **Principal soundness theorem:** currently **axiom-dependent** through `p2_runtime_correctness`
+- **Lean 4:** formal source exists, but the repair branch's first real `lake build` currently exposes type errors; no current revision-wide proof claim is made
+- **Principal soundness theorem:** withdrawn during repair; the earlier argument was axiom-dependent and did not typecheck under the new CI gate
 - **Physical RISC-V silicon:** not yet established
 - **Source-to-RV32 semantic refinement:** not yet proved
 
-The authoritative claim ledger is [`docs/VERIFICATION_STATUS.md`](docs/VERIFICATION_STATUS.md).
+The authoritative claim ledger is [`docs/VERIFICATION_STATUS.md`](docs/VERIFICATION_STATUS.md). Active semantic contradictions are tracked in [`docs/SEMANTIC_GAPS.md`](docs/SEMANTIC_GAPS.md).
 
 > **Important:** a passing QEMU test is executable evidence, not a mathematical proof. A Lean theorem about PSL's abstract machine is not automatically a theorem about the RV32 implementation or physical hardware.
 
