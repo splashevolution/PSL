@@ -12,6 +12,22 @@ class SemanticContractTests(unittest.TestCase):
     def compile(self, source: str):
         return PaninianFormalCompiler().compile_source(source)
 
+    def test_final_ir_snapshot_matches_emitted_words(self):
+        compiler = PaninianFormalCompiler()
+        source = """तन्त्रशास्त्रम् {
+    वाचम् लिखति ।
+}
+"""
+        words = compiler.compile_source(source)
+        ir = compiler.get_last_ir()
+        self.assertIsInstance(ir, tuple)
+        self.assertEqual([node.to_word() for node in ir], words)
+
+    def test_final_ir_unavailable_before_successful_compile(self):
+        compiler = PaninianFormalCompiler()
+        with self.assertRaises(RuntimeError):
+            compiler.get_last_ir()
+
     def test_ring2_write_to_asiddha_remains_legal(self):
         source = """तन्त्रशास्त्रम् {
     यन्त्र लिखति ।
