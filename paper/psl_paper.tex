@@ -1,14 +1,13 @@
 %% psl_paper.tex
-%% Verification-repair edition, October 2026
-%% The pre-repair manuscript is preserved in paper/historical/.
+%% Semantic-continuity research-agenda edition, October 2026.
+%% Earlier manuscripts are preserved under paper/historical/.
 %%
-%% Compile with: pdflatex psl_paper.tex
+%% Compile with: latexmk -pdf psl_paper.tex
 
 \documentclass[11pt,a4paper]{article}
 
 \usepackage{booktabs}
 \usepackage{tabularx}
-\usepackage{array}
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage[colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue]{hyperref}
@@ -16,525 +15,265 @@
 \usepackage[utf8]{inputenc}
 \usepackage{geometry}
 \geometry{margin=1in}
-\usepackage{authblk}
-\usepackage{parskip}
 
 \begin{document}
 
-\title{Structural Constraints for Embedded Control:\\
-       A Verification-Repair Study of the P\={a}ninian Systems Language}
+\title{Semantic Continuity Across Hardware Generations:\\
+       A Falsifiable Research Agenda and Verified Baseline}
 
-\author[1]{Praveen Kumar}
-\affil[1]{Independent Researcher, Delhi, India}
+\author{Praveen Kumar\\Independent Researcher, Delhi, India}
 \date{October 2026}
 
 \maketitle
 
 \begin{abstract}
-The P\={a}ninian Systems Language (PSL) is a research prototype that explores
-whether structural ideas inspired by P\={a}nini's grammatical system can be
-expressed as useful legality rules for a compact embedded-control language.
-PSL lowers programs to a fixed 32-bit instruction format and uses explicit
-concepts for context inheritance (Anuvrtti), structured erasure (Lopa),
-privilege scope (Adhik\={a}ra), and address visibility (Siddha/Asiddha).
+Long-lived software often outlives the hardware, protocols, and device
+representations for which it was first implemented. Existing work already
+provides verified compilation, proof-carrying code, platform-independent
+models, extensible intermediate representations, legacy emulation, and
+verified device drivers. This paper therefore does not claim novelty for any
+of those ingredients individually.
 
-This paper reports both the design and a verification repair undertaken after
-an audit found that earlier project claims exceeded the available evidence.
-An earlier compile-soundness development had not been exercised by a real
-Lean build and relied on a project axiom connecting compile-time and runtime
-written-state tracking. The repaired formal model removes that axiom, makes
-live written-state, inheritance context, and Adhik\={a}ra depth explicit,
-and proves an axiom-free forward simulation from successful canonical control
-validation to successful abstract execution. The principal Lean theorems are
-typechecked in CI; their dependency audit contains no PSL project axiom and no
-\texttt{sorryAx}.
+PSL investigates a narrower hypothesis: whether a stable semantic contract can
+remain unchanged across materially different hardware generations while each
+target-specific realization is checked independently, semantically incorrect
+or incapable targets fail closed, and unrelated upstream proof evidence
+remains reusable.
 
-The repaired repository additionally cross-checks exact binaries emitted by the
-Python compiler against the Lean validator. The current deterministic corpus
-contains 65 accepted word streams (8 checked-in programs and 57 generated
-variants), covering 22 distinct ABI words, plus adversarial streams that Lean
-must reject. Historical RV32/QEMU runs and a 5,000-program differential test
-remain useful experimental evidence, but they are not presented as a proved
-refinement from the repaired abstract semantics to hardware.
+The current repository provides only a baseline for this research question. A
+repaired Lean 4 model proves an axiom-free forward simulation from successful
+validation of a legacy 32-bit control representation to successful execution
+in its abstract machine. A finite Python-to-Lean bridge currently checks 65
+accepted word streams containing 22 distinct ABI words. These results do not
+establish hardware-generation continuity. They instead provide a reproducible
+starting point from which the stronger realization boundary can be falsified.
 
-The result is narrower than the project's earlier claim of a
-CompCert-equivalent verified compiler, but it is stronger in trustworthiness:
-the formal boundary is explicit, reproducible, and designed to expose rather
-than hide remaining gaps.
+The proposed evaluation uses deterministic virtual device models rather than
+specialized physical equipment. It requires correct realizations on two
+materially different virtual hardware generations, explicit refusal of an
+incapable third target, adversarial rejection of wrong bindings,
+representations, units, state transitions, and failure handling, and measured
+reuse of upstream evidence under hardware substitution.
 \end{abstract}
 
 \noindent\textbf{Keywords:}
-embedded systems, domain-specific languages, formal methods, Lean 4,
-RISC-V, P\={a}nini, privilege separation, state machines
+formal methods, semantic preservation, refinement, hardware evolution,
+proof reuse, Lean 4, virtual hardware, verified systems
 
-\section{Introduction}
+\section{Motivation}
 
-Embedded control software often relies on relationships between operations:
-a target must exist before it can be inherited, a value should be written
-before it is erased, a privileged operation should occur only inside an
-authorized scope, and some operations are intended to remain adjacent or
-atomic. Conventional systems languages can express these requirements, but
-they frequently encode them through APIs, assertions, static analyzers, code
-review, or runtime mechanisms rather than in a small domain-specific syntax.
+Software compatibility is often discussed at the level of instruction sets,
+binary interfaces, virtual machines, protocol gateways, or source recompilation.
+Those mechanisms are valuable, but they do not by themselves answer a semantic
+question: when a system is re-targeted, what evidence establishes that the new
+realization still performs the intended operation rather than merely producing
+well-formed low-level traffic?
 
-PSL asks a narrower research question:
+A simple example is a setpoint operation. A legacy controller may encode
+$25.0^\circ$C as integer 250 in register \texttt{0x20} and require entry into
+a configuration mode. A modern controller may use a named parameter, a
+floating-point representation, and a different persistence mechanism. Both may
+faithfully implement the same intent. Conversely, a driver that writes integer
+25 to the legacy register may be syntactically valid while realizing
+$2.5^\circ$C.
+
+The working objective is therefore:
 
 \begin{quote}
-Can selected control invariants be represented structurally enough that an
-invalid instruction sequence is rejected before execution, while keeping the
-resulting machine model small enough to audit formally?
+Software intent should outlive hardware, but only when a target-specific
+realization can justify the same observable semantic contract.
 \end{quote}
 
-The project borrows terminology and structural inspiration from
-P\={a}nini's \emph{A\d{s}\d{t}\={a}dhy\={a}y\={i}}, whose rule system has
-long attracted interest from formal-language researchers
-\cite{ingerman1967panini,kadvany2016panini}. The historical connection does
-not by itself establish novelty or correctness. PSL must be judged by its
-actual compiler rules, formal semantics, executable evidence, and comparison
-with conventional alternatives.
+\section{Prior Art and Non-Claims}
 
-An October 2026 audit materially changed the project. Earlier documentation
-described fifteen proof sprints, a CompCert-style verified compilation chain,
-and a Lean theorem analogous to CompCert's
-\texttt{compile\_correct} \cite{leroy2009compcert}. A real CI-backed Lean
-build showed that this description was not justified: the historical proof
-development contained type errors and also depended on a project axiom named
-\texttt{p2\_runtime\_correctness}. Several historical examples and firmware
-versions also disagreed about core semantics.
+Verified compilation already demonstrates strong machine-checked semantic
+preservation between source and target programs; CompCert is the canonical
+example \cite{leroy2009compcert}. Proof-carrying code established the pattern
+of an untrusted producer supplying evidence that a consumer checks
+\cite{necula1997pcc}. MLIR provides extensible infrastructure across multiple
+levels and heterogeneous targets \cite{lattner2020mlir}. Model Driven
+Architecture explicitly separates platform-independent and
+platform-specific models \cite{omgMDA}. Formal reasoning about preservation
+of legacy computer behavior under emulation also predates this project
+\cite{fidge2003legacy}. Recent driver-verification work such as Pancake shows
+that realistic low-level device interactions can be subjected to formal
+reasoning \cite{pancake2025}.
 
-Rather than preserve the stronger claim, the repair work narrowed the theorem
-and reconciled the language contract. This paper describes that repaired
-state.
+PSL therefore does not claim to have invented portability, refinement,
+certification, hardware abstraction, legacy emulation, or verified drivers.
 
-\subsection{Contributions of the repaired artifact}
+The research question is whether a useful \emph{continuity boundary} can be
+defined so that one semantic contract is independently realized across
+hardware generations, erroneous realizations fail closed, and the cost of
+hardware evolution is formally localized.
 
-The current repository contributes:
+\section{Research Hypotheses}
 
-\begin{enumerate}
-\item A compact 32-bit ABI and Python compiler for a small embedded-control
-      DSL with explicit context, erasure, privilege, and scope concepts.
-\item A canonical control state that tracks live written targets, live
-      Anuvrtti context, and Adhik\={a}ra scope depth.
-\item A Lean 4 abstract semantics and an axiom-free theorem that successful
-      control validation implies successful abstract execution with the same
-      final control state.
-\item CI-backed theorem dependency auditing that rejects
-      \texttt{sorryAx} and reintroduction of the retired PSL project axiom.
-\item A cross-language conformance gate in which exact Python-emitted 32-bit
-      words are decoded and checked independently in Lean.
-\item An explicit record of semantic contradictions discovered during the
-      audit and the decisions used to repair them.
-\end{enumerate}
+\subsection{Semantic continuity}
 
-\subsection{Non-claims}
+Let $C$ be a semantic contract and $D_1,D_2$ materially different device
+models. The first hypothesis is that independent realizations $R_1,R_2$ can
+both satisfy $C$ without modifying $C$.
 
-The current artifact does \emph{not} establish:
+\subsection{Realization soundness}
 
+A declaration that a target supports an operation is not sufficient evidence
+that its binding and behavior are correct. A checked relation should reject
+realizations with semantically relevant errors such as a wrong resource,
+scale, unit, byte order, privilege transition, operation ordering,
+persistence property, or failure interpretation.
+
+\subsection{Fail-closed incompatibility}
+
+If a target cannot satisfy the contract, the correct result is refusal. Silent
+degradation or hidden emulation is not compatibility unless the contract
+explicitly permits the resulting observable behavior.
+
+\subsection{Evolution-local proof reuse}
+
+Replacing $D_1,R_1$ with $D_2,R_2$ should not force re-verification of upstream
+obligations that depend only on an unchanged contract and observation model.
+This is not assumed; it must be measured and compared with a conventional
+refinement baseline.
+
+\section{Candidate Formal Shape}
+
+Let:
 \begin{itemize}
-\item a universal proof that the Python source compiler implements the Lean
-      semantics for all possible PSL programs;
-\item complete formal semantics for bounded repetition (Avrtti),
-      conditional precedence (Utsarga/Apavada), or Sandhi atomicity;
-\item a refinement theorem from the Lean machine to a canonical RV32
-      firmware implementation;
-\item equivalence between QEMU execution and physical RISC-V silicon;
-\item that PSL is generally faster, smaller, safer, or superior to existing
-      type systems, capability systems, or embedded DSLs.
+\item $C$ denote a semantic contract;
+\item $D$ denote a device model;
+\item $R$ denote a target-specific realization;
+\item $\pi$ denote realization evidence;
+\item $Obs$ denote the observation function or relation.
 \end{itemize}
 
-These are research questions, not results.
-
-\section{Paninian-inspired structural concepts}
-
-PSL uses P\={a}ninian terminology as an organizing vocabulary for explicit
-compiler state.
-
-\begin{table}[h]
-\centering
-\caption{PSL concepts and their repaired computational interpretation.}
-\begin{tabularx}{\linewidth}{>{\bfseries}p{3.0cm} X}
-\toprule
-Concept & PSL interpretation \\
-\midrule
-Karaka & Data-flow role associated with a target or operation. \\
-Anuvrtti & Inherit a currently live target context. \\
-Avrtti & Encode bounded repetition in the COMP field; full repaired semantics
-         remain open. \\
-Lopa & Erase live written state and terminate inheritance context. \\
-Vrddhi / Ring 0 & Privileged instruction attribute. \\
-Siddha / Asiddha & Static address partition at \texttt{0x50}. \\
-Adhikara & Explicit lexical/runtime privilege scope. \\
-Paribhasha & Named compiler legality rules. \\
-Sandhi & Compiler-declared compatible instruction pair; formal atomicity
-         remains open. \\
-\bottomrule
-\end{tabularx}
-\end{table}
-
-These mappings should not be interpreted as evidence that the ancient grammar
-already contained modern operating-system or compiler mechanisms. They are a
-design analogy whose usefulness must be demonstrated by the resulting formal
-and executable properties.
-
-\section{Instruction representation}
-
-Every lowered PSL instruction is one 32-bit big-endian word:
+The target checker should establish a statement of the general form
 
 \[
-\begin{array}{c|c|c|c|c|c}
-31\ldots28 & 27\ldots24 & 23\ldots16 & 15\ldots8 & 7\ldots4 & 3\ldots0 \\
-\hline
-\mathrm{RING} & \mathrm{COMP} & \mathrm{OPCODE} &
-\mathrm{TARGET} & \mathrm{FLAGS} & \mathrm{COND}
-\end{array}
+  Check(C,D,R,\pi)=\mathsf{true}
+  \quad\Longrightarrow\quad
+  Obs(Execute(D,R(C))) \models C.
 \]
 
-The repaired core recognizes:
+The exact relation may be trace inclusion, forward simulation, refinement, or
+another observational relation once nondeterminism, timing, and failures are
+made precise.
+
+The important design constraint is that the realization generator itself need
+not belong to the trusted computing base.
+
+\section{Current Verified Baseline}
+
+The present repository retains a repaired legacy PVM32 control model because it
+provides a concrete checked starting point. The current Lean development
+includes:
+\begin{itemize}
+\item an executable control validator;
+\item an abstract machine using the same control transition;
+\item an axiom-free theorem that successful word validation implies successful
+      abstract execution with the same final control state;
+\item a finite Python-to-Lean conformance corpus containing 65 accepted word
+      streams and 22 distinct ABI words;
+\item fixed adversarial encoded streams that the Lean validator must reject.
+\end{itemize}
+
+Lean 4 is pinned and built in CI \cite{moura2021lean4}. Historical QEMU
+experiments remain execution evidence rather than formal hardware refinement
+\cite{qemu}.
+
+This baseline does not prove the new semantic-continuity hypotheses.
+
+\section{Virtual Evaluation}
+
+The primary experiments should require no specialized equipment.
+
+The first benchmark freezes one semantic contract and defines three
+deterministic virtual target generations:
 
 \begin{center}
 \begin{tabular}{lll}
 \toprule
-Value & Name & Current control meaning \\
+Target & Characteristic & Expected result \\
 \midrule
-\texttt{0x00} & Lopa & structured erasure \\
-\texttt{0x05} & Write & write-class operation \\
-\texttt{0x06} & Read & read operation \\
-\texttt{0xCC} & Store & privileged write-class operation \\
-\texttt{0xAA} & Adhikara OPEN & increment scope depth \\
-\texttt{0xBB} & Adhikara CLOSE & decrement non-zero scope depth \\
+Legacy A & narrow/fixed-point, stateful protocol & ACCEPT if faithful \\
+Modern B & different representation/interface & ACCEPT independently \\
+Incapable C & lacks required semantic behavior & REFUSE \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-\texttt{COMP=1} denotes Anuvrtti. Values greater than one are historically
-used for Avrtti repetition counts but are not yet given full execution
-semantics by the repaired Lean theorem.
+QEMU, Renode, or a small deterministic emulator may instantiate the executable
+device side. The formal claim remains about the stated device model unless a
+separate conformance argument connects the executable simulator to that model.
 
-Ring is an instruction attribute. The audit removed the earlier formal design
-in which the machine also stored a mutable global ring changed by OPEN/CLOSE,
-because that duplicated privilege authority and produced a false theorem about
-restoring arbitrary prior ring state.
+\section{Adversarial Evaluation}
 
-\section{Canonical control semantics}
-
-\subsection{State}
-
-The repaired control state is
-
-\[
-C = \langle W, K, D \rangle
-\]
-
-where:
+At minimum the evaluation should mutate a correct realization into:
 
 \begin{itemize}
-\item $W : \mathrm{Addr} \rightarrow \mathrm{Bool}$ records whether an
-      address currently contains live written state;
-\item $K : \mathrm{Option}\;\mathrm{Addr}$ is the live Anuvrtti target;
-\item $D : \mathbb{N}$ is the active Adhik\={a}ra scope depth.
+\item wrong target binding;
+\item wrong fixed-point scale;
+\item wrong unit;
+\item wrong byte order or signedness;
+\item missing required configuration/authority transition;
+\item invalid command ordering;
+\item ignored negative acknowledgement;
+\item volatile behavior when persistence is required;
+\item non-atomic behavior when atomicity is required;
+\item a false capability declaration.
 \end{itemize}
 
-Initially, $W(a)=\mathrm{false}$ for all addresses, $K=\mathrm{none}$, and
-$D=0$.
+The significant case is one in which the low-level protocol is syntactically
+valid but the semantic realization is wrong.
 
-For an ABI word $w$,
+\section{Proof-Reuse Measurement}
 
-\[
-\mathrm{resolve}(C,w) =
-\begin{cases}
-K & \text{if } w.\mathrm{COMP}=1 \\
-\mathrm{some}(w.\mathrm{TARGET}) & \text{otherwise.}
-\end{cases}
-\]
+For hardware substitution $D_1\rightarrow D_2$, evaluation should publish:
 
-An Anuvrtti instruction is invalid if $K=\mathrm{none}$.
+\begin{itemize}
+\item semantic-contract lines changed;
+\item upstream semantic proof lines changed;
+\item prior certificates invalidated;
+\item new device-model obligations;
+\item new realization obligations;
+\item checker changes;
+\item proof-check time and certificate size;
+\item percentage of prior evidence reused.
+\end{itemize}
 
-\subsection{Address and privilege rules}
+A proof-locality claim is meaningful only if those measurements show that
+unrelated upstream evidence is actually preserved.
 
-The address partition is:
+\section{Falsification Criteria}
 
-\[
-\mathrm{Siddha}(a) \Leftrightarrow a < \texttt{0x50},
-\qquad
-\mathrm{Asiddha}(a) \Leftrightarrow a \ge \texttt{0x50}.
-\]
-
-The repaired rules are:
+The research direction should be narrowed or abandoned if:
 
 \begin{enumerate}
-\item Any Ring-0 executable instruction must resolve to Asiddha.
-\item Any Ring-0 executable instruction requires $D>0$.
-\item Store always requires Ring 0 and $D>0$.
-\item Lopa of an Asiddha target requires Ring 0 and $D>0$.
-\item Ring-2 Write to Asiddha is legal. Its visibility consequences belong to
-      the future memory/refinement model rather than the control validator.
+\item wrong bindings cannot be rejected without trusting the realization;
+\item a second target forces target details into the semantic contract;
+\item hardware substitution causes global proof churn;
+\item the checker becomes as complex or trusted as the realization;
+\item simulator-specific assumptions leak into the semantic theory;
+\item a conventional transition-system/refinement formulation achieves the
+      same result more directly with no measurable disadvantage.
 \end{enumerate}
 
-The last item repairs a direct inconsistency in the historical artifact:
-Sprint-9 compiler/firmware examples allowed a Ring-2 Write to Asiddha, while
-the old Lean machine rejected it.
-
-\subsection{Live written-state and Lopa}
-
-Write and Store establish live state:
-
-\[
-W[t] := \mathrm{true}.
-\]
-
-Lopa requires $W[t]=\mathrm{true}$ and then consumes it:
-
-\[
-W[t] := \mathrm{false}.
-\]
-
-Therefore a second Lopa on the same target requires a new intervening
-Write/Store.
-
-Lopa also clears $K$. This resolves a second historical contradiction.
-Sprint 5 defined Lopa as an inheritance boundary, while the later Sprint-13
-key-lifecycle example attempted an inherited Lopa immediately after an
-explicit Lopa. The repaired language adopts the earlier, structurally cleaner
-meaning: inheritance cannot cross erasure.
-
-\subsection{Adhikara}
-
-OPEN and CLOSE update scope depth:
-
-\[
-\mathrm{OPEN}: D := D+1,
-\qquad
-\mathrm{CLOSE}: D>0;\; D := D-1.
-\]
-
-A complete valid program must terminate with $D=0$. A CLOSE at depth zero is
-invalid.
-
-\section{Compiler architecture}
-
-The Python compiler performs symbol resolution, IR construction, Sandhi
-annotation, structural validation, lowering checks, and final ABI emission.
-The repaired validator independently tracks live written targets, live context,
-and scope depth instead of assuming that IR construction already enforced the
-rules correctly.
-
-The active examples are regression-tested against exact expected ABI words.
-Four examples that crossed semantic eras were repaired:
-
-\begin{itemize}
-\item \texttt{lopa\_core.pvm} now terminates at the Lopa boundary;
-\item \texttt{sandhi\_core.pvm} uses a scoped same-ring Store/Store pair;
-\item \texttt{paribhasha\_valid\_core.pvm} scopes its privileged Store;
-\item \texttt{key\_lifecycle.pvm} removes the inherited Lopa through an
-      erasure boundary.
-\end{itemize}
-
-Their pre-repair text is preserved under \texttt{programs/historical/}.
-Historical sprint evidence is provenance, not automatically the current
-language definition.
-
-\section{Lean model and proved result}
-
-The machine-checked authority is
-\texttt{lean/PSL/Semantics.lean}, typechecked under pinned Lean 4.34.1
-\cite{moura2021lean4}.
-
-The abstract machine contains a control state and a simple memory function.
-The memory model intentionally abstracts away a full hardware-level
-Siddha/Asiddha implementation. A step first executes the canonical control
-transition. Only a successful control transition permits the abstract memory
-update.
-
-Two folds are defined over a word stream:
-
-\begin{itemize}
-\item \texttt{validateWords}: applies only the control transition;
-\item \texttt{execute}: applies control plus abstract memory transition.
-\end{itemize}
-
-The central theorem is \texttt{validateWords\_execution}. Informally:
-
-\[
-\begin{split}
-& s_0.\mathrm{control}=c_0 \;\land\;
-\mathrm{validateWords}(ws,c_0)=\mathrm{some}(c_f) \\
-& \qquad \Rightarrow
-\exists s_f.\;
-\mathrm{execute}(ws,s_0)=\mathrm{some}(s_f)
-\;\land\;
-s_f.\mathrm{control}=c_f.
-\end{split}
-\]
-
-Corollaries connect successful validation of lowered IR to abstract execution
-and require closed Adhik\={a}ra scope for the definition of a
-\texttt{ValidProgram}.
-
-This theorem is intentionally not called a complete compiler-correctness
-theorem. Validation and execution share a canonical control transition, so
-the result establishes consistency between the validator and the abstract
-machine. It does not by itself formalize the Python parser or prove every
-source transformation correct.
-
-The theorem dependency audit currently reports only Lean's standard
-\texttt{propext}; there is no PSL project axiom and no \texttt{sorryAx}.
-The historical \texttt{p2\_runtime\_correctness} axiom has been removed.
-
-\section{Cross-language conformance evidence}
-
-A practical boundary remains between the Python compiler and the Lean model.
-The current artifact addresses it with finite, reproducible cross-language
-conformance rather than pretending it is a universal proof.
-
-CI performs the following sequence:
-
-\begin{enumerate}
-\item compile eight checked-in canonical PSL programs using Python;
-\item generate additional deterministic valid sources from the currently
-      formalized subset;
-\item collect exact numeric 32-bit ABI words;
-\item generate Lean propositions requiring every word stream to satisfy
-      \texttt{validateEncodedClosed};
-\item require every distinct emitted word to round-trip through Lean's
-      numeric ABI decoder;
-\item typecheck these propositions with Lean;
-\item typecheck a separate adversarial file whose malformed streams must be
-      rejected.
-\end{enumerate}
-
-At the time of this repair, the passing positive corpus contains 65 word
-streams: eight checked-in programs plus 57 generated variants, covering 22
-distinct ABI words.
-
-Negative cases include:
-
-\begin{itemize}
-\item Anuvrtti without live context;
-\item CLOSE at zero scope depth;
-\item Ring-0 access to Siddha;
-\item Store outside Adhik\={a}ra;
-\item Ring-2 Store even inside Adhik\={a}ra;
-\item Asiddha Lopa without a live prior write;
-\item double Lopa without a new write;
-\item post-Lopa Anuvrtti;
-\item unclosed Adhik\={a}ra scope.
-\end{itemize}
-
-This evidence is stronger than the project's historical theorem-name string
-checks, but it remains finite.
-
-\section{Historical experimental evidence}
-
-Earlier project sprints produced freestanding RV32 firmware executed under
-QEMU and a 5,000-program differential test run. These artifacts remain useful
-for regression archaeology and for understanding how the language evolved.
-
-They are now classified as \emph{historical executable evidence} for three
-reasons. First, firmware semantics changed between sprints; there is not yet
-one canonical RV32 runtime. Second, some historical examples contradict the
-repaired language contract. Third, QEMU execution is not a proof about
-physical silicon.
-
-The 5,000-program differential experiment is likewise useful but should not
-be read as formal verification. It compared implementations/properties over a
-generated domain and helped discover an overconstrained Sandhi rule. Its
-scientific value is empirical falsification, not theorem proving.
-
-\section{Sandhi boundary}
-
-Sandhi remains an interesting but deliberately open part of the repaired
-formal story. The compiler checks pair compatibility and marks the first word
-with \texttt{FLAGS=0xE}. Historical firmware interpreted this marker as a
-request for paired execution.
-
-The current Lean theorem does not prove atomicity, interruption behavior,
-rollback behavior, or hardware visibility of such a pair. Therefore this
-paper uses the phrase \emph{Sandhi pair marking}, not proved atomic execution.
-A proper result requires an explicit atomic transition model and a refinement
-to the selected RV32 runtime.
-
-\section{Threats to validity and limitations}
-
-\paragraph{Shared transition definition.}
-The validator-to-execution theorem is a consistency result over a shared
-canonical control transition. It should not be confused with an independently
-verified optimizing compiler.
-
-\paragraph{Finite compiler bridge.}
-The 65-stream cross-language corpus can find disagreements but cannot prove
-the absence of disagreements outside the generated domain.
-
-\paragraph{Incomplete language features.}
-Avrtti, Utsarga/Apavada, and Sandhi atomicity are not yet incorporated into
-the central repaired theorem.
-
-\paragraph{Simplified memory model.}
-The Lean memory function does not yet model realistic MMIO ordering, caches,
-interrupts, DMA, speculation, or a concrete Siddha/Asiddha hardware
-implementation.
-
-\paragraph{Historical firmware plurality.}
-Different RV32 sprint firmware files implement different subsets or semantic
-eras. A single canonical runtime must be selected before an implementation
-refinement claim is meaningful.
-
-\paragraph{No physical-hardware proof.}
-QEMU evidence does not establish physical RISC-V behavior.
-
-\paragraph{Comparative novelty.}
-The use of P\={a}ninian terminology does not by itself establish a novel
-formal-methods result. Any novelty claim requires comparison with existing
-effect systems, typestate, capability machines, verified DSLs, protocol state
-machines, and certified compilation.
-
-\section{Future work}
-
-The repair establishes an order for future work:
-
-\begin{enumerate}
-\item formalize a source/IR relation or proof-producing certificate that
-      reduces the remaining Python-to-Lean gap;
-\item add independent formal semantics for Avrtti and conditional execution;
-\item give Sandhi an explicit atomic transition semantics and adversarial
-      interruption model;
-\item select one canonical RV32 runtime;
-\item establish transition-level differential/refinement evidence between
-      that runtime and Lean;
-\item run on physical hardware;
-\item only after those steps, evaluate whether a stronger end-to-end
-      compiler-correctness theorem is justified.
-\end{enumerate}
-
-Performance, code-size, energy, and determinism claims should be evaluated
-against explicit conventional baselines rather than inferred from language
-structure.
+Negative results are part of the intended research outcome.
 
 \section{Conclusion}
 
-PSL remains an experimental systems-language project, but the verification
-repair changes what can responsibly be said about it.
+PSL is now a research programme about semantic continuity, not a claim that a
+particular syntax, historical vocabulary, or compiler architecture is novel.
+The immediate task is to formalize a realization relation strong enough to
+distinguish semantically correct behavior from merely well-formed target
+operations, and then test whether that relation allows useful proof reuse
+across materially different virtual hardware generations.
 
-The strongest current formal statement is not that PSL is a fully verified
-compiler or that P\={a}ninian structure has been proved superior to modern
-systems techniques. The result is narrower: the repaired canonical control
-validator is machine-checked in Lean, successful validation is proved to
-forward-simulate into successful abstract execution, the theorem uses no PSL
-project axiom, and the current Python compiler is continuously cross-checked
-against that model over a deterministic positive and negative corpus.
+The ambition remains simple to state:
 
-The audit also produced a methodological result: counts of sprints, checks,
-and green scripts are poor substitutes for an explicit trust boundary. Once
-the repository began requiring a real Lean build and distinguishing tests from
-proofs, several contradictions became visible and repairable.
-
-That narrower result provides a credible base for the next question: whether
-the same structural contract can survive refinement into one real RV32
-runtime and, eventually, physical hardware.
-
-\section*{Acknowledgements}
-
-The author thanks the Lean, QEMU, and GNU/RISC-V communities whose open-source
-infrastructure makes independent reproduction possible.
+\begin{quote}
+\textbf{Software intent should outlive hardware.}
+\end{quote}
 
 \bibliographystyle{plain}
 \bibliography{psl_paper}

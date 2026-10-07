@@ -1,204 +1,130 @@
-# PSL Canonical Language and VM Specification
+# PSL Research Specification
 
-**Revision:** verification repair, 2026-10-07
-**Status:** research prototype; feature development frozen while semantic/refinement work is completed.
-
-The pre-repair specification is preserved at
-`docs/historical/SPEC-pre-verification-repair.md`.
+**Revision:** semantic-continuity reset, October 2026  
+**Status:** research hypothesis; not yet an established novelty result
 
 ## 1. Purpose
 
-PSL is a small systems-language research prototype inspired by structural ideas
-from Pāṇinian grammar. The current goal is not to replace conventional systems
-languages. It is to test whether explicit structural legality rules can produce
-a compact, auditable compiler/runtime contract.
+PSL studies whether software intent can remain stable while target
+implementations and hardware generations change.
 
-The normative abstract semantics are in `lean/PSL/Semantics.lean`.
-
-## 2. 32-bit ABI
+The active research boundary is:
 
 ```text
-31..28   27..24   23..16   15..08   07..04   03..00
-RING     COMP      OPCODE    TARGET    FLAGS     COND
+SemanticContract
+      ↓
+Realization + evidence
+      ↓
+checked relation
+      ↓
+DeviceModel
 ```
 
-The binary image is serialized big-endian.
+A realization is accepted only when its evidence establishes the required
+observable behavior. A capability declaration alone is insufficient.
 
-Current opcodes:
+## 2. Core objects
 
-- `0x00` Lopa
-- `0x05` Write
-- `0x06` Read
-- `0xCC` Store
-- `0xAA` Adhikāra OPEN
-- `0xBB` Adhikāra CLOSE
+The intended formal model will distinguish:
 
-`COMP=0` is explicit target form.
-`COMP=1` is Anuvṛtti.
-`COMP>1` is reserved by the historical language for Āvṛtti count encoding;
-full repetition semantics remain outside the current proved core.
+- **SemanticContract** — target-neutral behavioral requirement;
+- **Observation** — behavior visible at the semantic boundary;
+- **DeviceModel** — target state, transitions, and observations;
+- **Realization** — mapping from semantic operation to target operations;
+- **RealizationEvidence** — certificate/proof material for that mapping;
+- **Checker** — fail-closed validator of realization evidence;
+- **Continuity** — relation saying materially different realizations satisfy
+  the same contract;
+- **Evolution** — relation describing which prior evidence remains valid after
+  a controlled change.
 
-`FLAGS=0xE` marks the first member of a compiler-declared Sandhi pair.
-Atomic runtime meaning is not yet formally established.
+The exact Lean definitions remain research work.
 
-## 3. Address regions
+## 3. First soundness shape
+
+The target theorem/checker should eventually support a statement resembling:
 
 ```text
-Siddha   = addresses < 0x50
-Asiddha  = addresses >= 0x50
+Check(C, D, R, π) = true
+        ⇒
+Obs(Execute(D, R(C))) satisfies C
 ```
 
-The address partition is static.
+The final relation may use trace inclusion, simulation, refinement, or another
+precise observational relation depending on nondeterminism and failure
+semantics.
 
-A Ring-2 WRITE may target either region. The eventual canonical runtime must
-define the visibility/storage behavior of Asiddha writes precisely.
+## 4. Fail-closed requirement
 
-Ring-0 instructions may resolve only to Asiddha targets.
+A target that cannot satisfy the semantic contract must be rejected.
 
-## 4. Instruction privilege
+Silent degradation is not permitted unless the contract itself allows the
+degraded behavior.
 
-Ring is encoded in each instruction.
+## 5. Adversarial requirement
 
-Adhikāra supplies scope authority. Canonical legality requires:
+The first model must distinguish protocol validity from semantic correctness.
 
-- Ring 0 instruction -> active Adhikāra scope;
-- Ring 0 instruction -> resolved Asiddha target;
-- Store -> active Adhikāra + Ring 0;
-- Lopa of Asiddha -> active Adhikāra + Ring 0.
+Examples that should be rejectable include:
 
-The compiler auto-promotes Store and Lopa to Ring 0 where its source-building
-rules specify that behavior, but the validator independently checks the emitted
-IR rather than trusting promotion.
+- wrong target resource/register;
+- wrong scale or representation;
+- wrong unit;
+- wrong byte order;
+- missing privilege/configuration transition;
+- invalid command ordering;
+- ignored failure acknowledgement;
+- volatile behavior when persistence is required;
+- non-atomic behavior when atomicity is required.
 
-## 5. Anuvṛtti
+## 6. Hardware-generation substitution
 
-An Anuvṛtti instruction carries `COMP=1` and no independent semantic target.
-Its effective target is the current live context.
-
-Anuvṛtti is illegal when no live context exists.
-
-A successful explicit non-Lopa instruction establishes target context.
-
-## 6. Lopa
-
-Lopa is structured erasure.
-
-Canonical rules:
-
-1. the resolved target must have live written state;
-2. Lopa consumes that written state;
-3. Lopa clears Anuvṛtti context.
-
-Therefore Lopa is both a state-lifecycle operation and a context boundary.
-
-## 7. Pāṇinian legality rules
-
-The current compiler groups several checks under the historical P1-P4 naming.
-The canonical semantic content is:
-
-### P1 — context validity
-
-Anuvṛtti requires live target context.
-
-### P2 — live erasure
-
-Lopa requires a currently live written target.
-
-### P3 — privileged target region
-
-Ring 0 may resolve only to Asiddha.
-
-### P4 — privilege scope
-
-Ring 0 requires Adhikāra. Store is always scoped Ring 0. Asiddha Lopa is scoped
-Ring 0.
-
-Error identifiers remain implementation-facing compatibility labels; the
-semantic rules above are normative.
-
-## 8. Written-state transitions
-
-For resolved target `t`:
+A first continuity experiment should hold one contract fixed while testing:
 
 ```text
-WRITE(t): W[t] := true
-STORE(t): W[t] := true
-LOPA(t):  require W[t] = true; W[t] := false
-READ(t):  W unchanged
+Legacy A      → ACCEPT if faithful
+Modern B      → ACCEPT independently
+Incapable C   → REFUSE
 ```
 
-Inherited WRITE/STORE affect the resolved inherited target exactly as explicit
-forms do.
+A and B should differ materially in representation or interaction model, not
+only in address.
 
-## 9. Adhikāra transitions
+## 7. Proof-reuse measurement
 
-```text
-OPEN  -> scopeDepth + 1
-CLOSE -> require scopeDepth > 0; scopeDepth - 1
-```
+When A is replaced by B, evaluation must report at least:
 
-A valid complete program finishes with scope depth zero.
+- semantic-contract changes;
+- semantic proof changes;
+- upstream certificates invalidated;
+- new device-model obligations;
+- new realization obligations;
+- checker changes;
+- proof-check time;
+- percentage of prior evidence reused.
 
-## 10. Sandhi
+## 8. Current compatibility baseline
 
-Sandhi remains a compiler transform that:
+The existing PVM32 source language, 32-bit ABI, Python compiler, and Lean
+control semantics are retained as a verified/repaired historical baseline.
 
-- requires two compatible write-class instructions;
-- requires same target;
-- requires an explicit first instruction;
-- requires same ring;
-- marks the first lowered word with `FLAGS=0xE`.
+Their legacy identifiers are not the vocabulary of the new research model.
 
-The active canonical example places two Stores inside Adhikāra.
+The machine-checked authority for that baseline is
+`lean/PSL/Semantics.lean`.
 
-**Atomic execution is not yet part of the repaired formal theorem.**
+## 9. Scope boundary
 
-## 11. Current conformance
+PSL is not an operating system, emulator, Sanskrit language project, natural
+language parser, or generic compiler framework.
 
-The following are current conformance mechanisms:
+Virtual hardware is test infrastructure.
 
-- `tests/test_semantic_contract.py`
-- `tests/test_canonical_programs.py`
-- `lean/PSL/Semantics.lean`
-- `lean/Audit.lean`
-- GitHub Actions for Python semantic contract + Lean verification
+## 10. Claim discipline
 
-Historical firmware pipelines are not all normative because their semantics
-evolved between sprints.
+The project may call semantic continuity, realization soundness, fail-closed
+compatibility, and localized proof reuse **hypotheses** until they are formally
+specified, mechanically checked, experimentally evaluated, and compared with
+existing refinement/certification approaches.
 
-## 12. Current proof boundary
-
-Machine-checked:
-
-```text
-successful canonical ABI validation
-              =>
-successful abstract execution
-with the same final control state
-```
-
-Still open:
-
-```text
-PSL source
-  -> Python compiler
-  -> canonical ABI validation
-  -> Lean abstract execution
-  -> canonical RV32 runtime
-  -> physical hardware
-```
-
-The first open arrow to close is the Python compiler / Lean validator
-correspondence for the canonical subset.
-
-## 13. Research claims
-
-The following are not specification facts and must be tested independently:
-
-- PSL is smaller/faster than conventional approaches;
-- PSL improves deterministic timing;
-- Pāṇinian structure is superior to existing type/capability systems;
-- the design prevents broad categories of embedded bugs;
-- QEMU behavior predicts physical hardware behavior.
-
-The project should report negative results where they occur.
+See `docs/NOVELTY_CONTRACT.md`.

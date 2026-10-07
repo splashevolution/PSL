@@ -1,104 +1,89 @@
-# Pāṇinian Systems Language (PSL) — Project Manifest
+# PSL — Project Manifest
 
-**Last updated:** 2026-05-24  
-**Status:** Publication-ready. All artefacts verified, paper compiled clean.
+**Direction:** semantic continuity across hardware generations  
+**Status:** open research prototype
 
----
+## Research question
 
-## What This Project Is
+PSL investigates whether a stable semantic contract can survive materially
+different target implementations while each realization is checked
+independently, incompatible targets fail closed, and unrelated upstream proof
+evidence remains reusable.
 
-PSL is a domain-specific language for embedded peripheral control whose type
-system is derived from Pāṇini's Pāribhāṣā meta-rules. A class of embedded
-programming errors is made structurally inexpressible: the compiler produces no
-binary for an illegal program. This is stronger than a suppressible warning.
+The project is no longer developed as a Sanskrit or Pāṇinian programming
+language experiment.
 
-**Paper:** `paper/psl_paper.tex` / `paper/psl_paper.pdf`  
-(12 pages, zero overfull hboxes, all citations resolved; submitted to arXiv cs.PL)
+## Active research documents
 
----
+The current research contract is defined by:
 
-## Verified Milestones
+- `docs/RESEARCH_CHARTER.md`
+- `docs/PRIOR_ART.md`
+- `docs/NOVELTY_CONTRACT.md`
+- `docs/SEMANTIC_CONTINUITY.md`
+- `docs/THREAT_MODEL.md`
+- `docs/EVALUATION_PROTOCOL.md`
+- `docs/TERMINOLOGY_AUDIT.md`
 
-| Sprint | Concept | Checks | Status |
-|--------|---------|--------|--------|
-| 1–2 | Siddha/Asiddha isolation + Utsarga/Apavāda | 10 | ✓ |
-| 3 | Āvṛtti (bounded repetition) | 5 | ✓ |
-| 4 | Anuvṛtti (context inheritance) | 5 | ✓ |
-| 5 | Lopa (structured erasure) | 6 | ✓ |
-| 6 | Sañjñā (zero-cost name abstraction) | 7 | ✓ |
-| 7 | Pāribhāṣā P1–P4 structural rejection | 9 | ✓ |
-| 8 | Prakriya IR determinism (L1/L2) | 5 | ✓ |
-| 9 | Sandhi instruction fusion (S1–S5) | 11 | ✓ |
-| 10 | Adhikāra privilege scope | 15 | ✓ |
-| 11 | MMIO Boot Sequencer (real-world vertical) | 26 | ✓ |
-| 12 | Safety-Critical Valve Interlock (real-world vertical) | 26 | ✓ |
-| 13 | Cryptographic Key Lifecycle (real-world vertical) | 28 | ✓ |
-| 14 | CompCert-style verified compilation chain (5 phases) | 47 | ✓ |
-| 15 | Lean 4 formal proof of compile_sound_statement | 6 | ✓ |
-| **Total** | | **206** | **✓** |
+## Formal baseline
 
-Differential test suite: 5,000 programs, seed 42, 4 invariant properties — all pass.
+The repository retains a repaired PVM32 compiler/Lean baseline because it
+provides useful checked implementation history.
 
----
+Important files:
 
-## Repository Layout
+- `lean/PSL/Semantics.lean` — repaired legacy PVM32 abstract/control semantics;
+- `lean/PSL/SemanticKernel.lean` — small language-neutral semantic checkpoint;
+- `lean/PSL/PVM32Driver.lean` — Realization 0 / compatibility adapter;
+- `tests/` — current Python regression and adversarial tests;
+- `scripts/generate_lean_conformance.py` — finite Python-to-Lean conformance corpus.
 
-```
-programs/                   All 12 PSL source files (.pvm)
-src/
-  utils/
-    paninian_compiler.py    PaninianFormalCompiler (832 lines)
-    build_firmware.py       .pvm → .bin via compiler
-    embed_binary_image.py   .bin → pvm_image.h C array
-  rv32/                     Freestanding RV32 firmware (C + asm)
-lean/
-  PSL/Semantics.lean        Lean 4 formal spec (531 lines, 0 sorrys, 1 axiom)
-  lakefile.lean             Lake build descriptor
-paper/
-  psl_paper.tex             LaTeX source
-  psl_paper.pdf             Compiled paper (12 pages)
-  psl_paper.bib             Bibliography (14 entries)
-evidence/                   15 proof records (one per sprint)
-docs/                       Case study document (DOCX + PDF)
-run_rv32_*_pipeline.py      Sprint runners (Sprints 1–13, require QEMU VM)
-run_prakriya_ir_proof.py    Sprint 8 local IR proof
-run_differential_tests.py   5,000-program differential suite
-run_verified_compilation_proof.py  Sprint 14–15 harness (53/53, no VM needed)
-```
+Historical identifiers in the PVM32 compiler and ABI are compatibility names,
+not current research vocabulary. See `docs/TERMINOLOGY_AUDIT.md`.
 
----
+## Evidence boundary
 
-## Reproduction
+The project distinguishes:
 
-```bash
-# Sprint 14–15 verified chain (no VM, no Lean required):
-python3 run_verified_compilation_proof.py
-# Expected: Sprint 14–15 COMPLETE — 53/53 checks passed
+1. Lean theorems about stated formal models;
+2. finite compiler/regression evidence;
+3. virtual-hardware execution evidence;
+4. future physical-device conformance evidence.
 
-# Differential test suite:
-python3 run_differential_tests.py
-# Expected: 5000/5000 PASS
+No category automatically proves another.
 
-# Lean 4 typecheck (requires elan):
-cd lean && lake build
+## Current research sequence
 
-# Compile the paper:
-cd paper && pdflatex psl_paper.tex && bibtex psl_paper && pdflatex psl_paper.tex && pdflatex psl_paper.tex
+The next formal line is expected to introduce neutral objects such as:
+
+```text
+SemanticContract
+Observation
+DeviceModel
+Realization
+RealizationEvidence
+RealizationChecker
+Continuity
+Evolution
 ```
 
-Sprints 1–13 pipeline runners require `qemu-system-riscv32`, `riscv32-unknown-elf-gcc`,
-and SSH access to a Lubuntu VM with `PVM_VM_PASSWORD` set in the environment.
-No credentials are ever hardcoded.
+The first falsification target is a syntactically valid but semantically wrong
+target realization: wrong binding, scale, unit, byte order, state transition,
+or failure handling must be rejectable without trusting the realization
+generator.
 
----
+## Virtual hardware
 
-## Key Files
+PSL's core research should be reproducible without specialized equipment.
+QEMU, Renode, or small deterministic emulators may be used as external
+evaluation infrastructure.
 
-| File | Purpose |
-|------|---------|
-| `src/utils/paninian_compiler.py` | Compiler: lexer, IR, Sandhi, Pāribhāṣā, lowering |
-| `lean/PSL/Semantics.lean` | Lean 4 formal spec and `compile_sound` proof |
-| `run_verified_compilation_proof.py` | 53-check executable proof harness |
-| `paper/psl_paper.pdf` | Research paper (12 pages) |
-| `STATUS.md` | Living project status document |
-| `evidence/` | Sprint proof records (15 files) |
+Operating-system and general virtual-hardware engineering are outside PSL's
+research scope.
+
+## Historical material
+
+Earlier Pāṇinian/Sanskrit work is retained under explicit historical paths for
+provenance. It should not be read as the current novelty claim.
+
+Start with `docs/historical/PANINIAN_ORIGIN.md`.

@@ -1,20 +1,24 @@
 # PSL paper
 
-`psl_paper.tex` is the active verification-repair manuscript.
+`psl_paper.tex` is the active **semantic-continuity research-agenda** manuscript.
 
-The pre-repair source is preserved under `paper/historical/` for provenance.
-The previously committed PDF was removed because it contained superseded
-verification claims.
+It does not claim that semantic continuity is already novel or proved. The
+paper states the research hypotheses, current verified baseline, proposed
+virtual-hardware evaluation, adversarial tests, proof-reuse measurements, and
+explicit falsification criteria.
 
-PDFs are now build artifacts, not source-controlled authorities. The paper CI
-workflow compiles the active TeX source and uploads `psl_paper.pdf` as a
-workflow artifact.
+Earlier Pāṇinian/language-focused and verification-repair manuscripts are
+preserved under `paper/historical/` for provenance.
 
-The claim authority remains:
+PDFs are build artifacts, not source-controlled authorities. CI compiles the
+active TeX source and uploads `psl_paper.pdf`.
 
-1. `docs/VERIFICATION_STATUS.md`
-2. `lean/PSL/Semantics.lean`
-3. the current compiler/tests
+Current claim authority remains:
+
+1. `docs/NOVELTY_CONTRACT.md`
+2. `docs/RESEARCH_CHARTER.md`
+3. `docs/SEMANTIC_CONTINUITY.md`
+4. the relevant Lean theorem statements and CI output.
 
 A successful PDF build demonstrates document reproducibility, not correctness
-of the research claims.
+of the research hypotheses.
