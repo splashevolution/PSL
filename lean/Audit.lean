@@ -3,6 +3,7 @@ import PSL.PVM32Driver
 import PSL.SemanticContinuityRed1
 import PSL.SemanticContinuityGreen1
 import PSL.SemanticContinuityRed2
+import PSL.SemanticContinuityGreen2
 
 #print axioms validateIRClosed_sound
 #print axioms validateWords_execution
@@ -20,3 +21,7 @@ import PSL.SemanticContinuityRed2
 
 #print axioms PSL.red2_same_resource
 #print axioms PSL.red2_green1_is_representation_blind
+
+#print axioms PSL.checkRepresentation_true_iff
+#print axioms PSL.green2_separates_red2_witness
+#print axioms PSL.green2_checked_representation_is_model_faithful

@@ -55,7 +55,7 @@ They should not be copied into new semantic-continuity modules.
 
 See `docs/TERMINOLOGY_AUDIT.md`.
 
-## Active formal milestone — RED-2
+## Active formal milestone — GREEN-2
 
 RED-1 established that two distinct target bindings for the same semantic script both pass the capability-plus-lowering gate.
 
@@ -69,7 +69,15 @@ RED-2 now freezes the GREEN-1-correct resource binding and mutates only the targ
 
 See \`docs/research/RED2_REPRESENTATION_BLINDNESS.md\`.
 
-This establishes the next narrow gap: **binding correctness is not representation correctness**.
+This established the next narrow gap: **binding correctness is not representation correctness**.
+
+GREEN-2 adds a generic target-specific \`RepresentationModel(SemanticValue, Raw)\` plus an executable representation checker. The target-neutral witness states 25 °C; the PVM32 model independently defines Celsius as fixed-point ×10, so raw 250 is derived at the target boundary rather than embedded in the semantic value.
+
+The composed GREEN-2 gate accepts the reference candidate and rejects the RED-2 wrong-scale candidate while preserving the GREEN-1 resource check.
+
+See \`docs/research/GREEN2_REPRESENTATION_CHECK.md\`.
+
+Protocol state, ordering, acknowledgements, persistence, and physical-device conformance remain open.
 
 The motivating case is:
 
@@ -85,9 +93,8 @@ correct:
   ACK observed
 
 incorrect:
-  encode 25.0 as 25
-  correct resource
-  representation mismatch
+  write 250 to the correct resource
+  but omit required configuration/state transitions
 ```
 
 The new theory should reject incorrect realizations because of behavior, not
