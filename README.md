@@ -8,6 +8,8 @@ Pāṇini is important here for the architecture of derivation — naming, relat
 
 PSL is not trying to replace C, Rust, Go, LLVM, MLIR, Lean, or natural language. The research question is whether a small semantic layer can preserve meaning across changing notation, software stacks, and hardware generations.
 
+**Research site:** [modern PSL architecture and evidence map](https://splashevolution.github.io/paninian-systems-language/) · **Status:** open research prototype · **Current focus:** repaired verification line + semantic-script kernel
+
 ## The Aim
 
 Today, source code usually binds together several concerns too early:
