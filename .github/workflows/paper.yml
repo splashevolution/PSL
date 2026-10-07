@@ -1,0 +1,30 @@
+name: Paper build
+
+on:
+  pull_request:
+    branches: ["main"]
+  push:
+    branches: ["repair/verification-contract"]
+  workflow_dispatch:
+
+jobs:
+  paper:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install LaTeX toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y latexmk texlive-latex-base texlive-latex-extra texlive-fonts-recommended
+
+      - name: Build verification-repair manuscript
+        run: |
+          cd paper
+          latexmk -pdf -interaction=nonstopmode -halt-on-error psl_paper.tex
+
+      - name: Upload paper PDF
+        uses: actions/upload-artifact@v4
+        with:
+          name: psl-paper
+          path: paper/psl_paper.pdf
