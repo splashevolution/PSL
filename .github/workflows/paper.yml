@@ -3,23 +3,35 @@ name: Paper build
 on:
   pull_request:
     branches: ["main"]
+    paths:
+      - "paper/**"
+      - ".github/workflows/paper.yml"
   push:
-    branches: ["repair/verification-contract"]
+    branches: ["main"]
+    paths:
+      - "paper/**"
+      - ".github/workflows/paper.yml"
   workflow_dispatch:
 
 jobs:
   paper:
     runs-on: ubuntu-latest
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install LaTeX toolchain
+      - name: Install minimal LaTeX toolchain
+        shell: bash
         run: |
-          sudo apt-get update
-          sudo apt-get install -y latexmk texlive-latex-base texlive-latex-extra texlive-fonts-recommended
+          set -euo pipefail
+          export DEBIAN_FRONTEND=noninteractive
+          timeout 120s sudo apt-get -o Acquire::Retries=3 update
+          timeout 360s sudo apt-get -o Acquire::Retries=3 install -y --no-install-recommends             latexmk             texlive-latex-base             texlive-latex-recommended
 
       - name: Build semantic-continuity manuscript
+        shell: bash
         run: |
+          set -euo pipefail
           cd paper
           latexmk -pdf -interaction=nonstopmode -halt-on-error psl_paper.tex
 
