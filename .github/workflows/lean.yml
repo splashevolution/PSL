@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: ["main"]
   push:
-    branches: ["repair/verification-contract"]
+    branches: ["repair/verification-contract", "feature/semantic-script-kernel"]
   workflow_dispatch:
 
 jobs:
