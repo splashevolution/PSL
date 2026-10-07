@@ -26,9 +26,9 @@ What is currently established:
   - `validateWords_execution`
   - `validated_ir_executes`
   - `valid_program_executes`
-- Python semantic-contract tests exercise the corresponding compiler boundary cases.
+- Python semantic-contract tests exercise the corresponding compiler boundary cases;\n- CI cross-checks the Python compiler's exact numeric output in Lean: the current generated corpus covers **65 accepted word streams** (8 checked-in programs + 57 deterministic generated variants) and **22 distinct ABI words**;\n- fixed adversarial word streams are independently required to evaluate to rejection in Lean.
 
-The retired project axiom `p2_runtime_correctness` is no longer part of the repaired formal model. CI audits the principal theorems for `sorryAx` and for reintroduction of that project axiom.
+The retired project axiom `p2_runtime_correctness` is no longer part of the repaired formal model. CI audits the principal theorems for `sorryAx` and for reintroduction of that project axiom. The current dependency audit reports only Lean's standard `propext` axiom for the principal forward-simulation theorems.
 
 What is **not** yet established:
 
@@ -86,7 +86,7 @@ The fixed layout is intended to keep decoding predictable and inspectable.
 - `src/utils/paninian_compiler.py` — canonical Python compiler implementation under repair
 - `lean/PSL/Semantics.lean` — current Lean abstract/control semantics
 - `lean/Audit.lean` — principal-theorem dependency audit
-- `tests/test_semantic_contract.py` — compiler semantic-contract regression tests
+- `tests/test_semantic_contract.py` — compiler semantic-contract regression tests\n- `tests/test_canonical_programs.py` — exact ABI checks for active example programs\n- `scripts/generate_lean_conformance.py` — deterministic Python-compiler → Lean finite conformance generator\n- `lean/NegativeConformance.lean` — adversarial word streams that must be rejected
 - `programs/` — PSL example programs; some are historical and may predate the repaired contract
 - `src/rv32/` — historical freestanding RV32/QEMU firmware experiments
 - `paper/` — historical research manuscript; claims must be reconciled with the current ledger
