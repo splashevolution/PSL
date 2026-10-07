@@ -54,7 +54,7 @@ What is currently established:
   - `valid_program_executes`
 - Python semantic-contract tests exercise the corresponding compiler boundary cases;\n- CI cross-checks the Python compiler's exact numeric output in Lean: the current generated corpus covers **65 accepted word streams** (8 checked-in programs + 57 deterministic generated variants) and **22 distinct ABI words**;\n- fixed adversarial word streams are independently required to evaluate to rejection in Lean.
 
-The retired project axiom `p2_runtime_correctness` is no longer part of the repaired formal model. CI audits the principal theorems for `sorryAx` and for reintroduction of that project axiom. The current dependency audit reports only Lean's standard `propext` axiom for the principal forward-simulation theorems.
+The retired project axiom `p2_runtime_correctness` is no longer part of the repaired formal model. CI audits the principal theorems for `sorryAx` and for reintroduction of that project axiom. The forward-simulation theorems depend on Lean's standard `propext`; the executable-certificate bridge additionally reports Lean's standard `Quot.sound`. No PSL-specific project axiom is used by these audited results.
 
 What is **not** yet established:
 
