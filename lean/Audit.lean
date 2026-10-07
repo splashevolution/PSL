@@ -6,6 +6,7 @@ import PSL.SemanticContinuityRed2
 import PSL.SemanticContinuityGreen2
 import PSL.SemanticContinuityRed3
 import PSL.SemanticContinuityGreen3
+import PSL.SemanticContinuityRed4
 
 #print axioms validateIRClosed_sound
 #print axioms validateWords_execution
@@ -34,3 +35,6 @@ import PSL.SemanticContinuityGreen3
 #print axioms PSL.checkProtocol_true_iff
 #print axioms PSL.green3_separates_red3_witness
 #print axioms PSL.green3_checked_protocol_is_model_faithful
+
+#print axioms PSL.red4_executions_are_identical
+#print axioms PSL.red4_green3_is_observation_blind

@@ -55,7 +55,7 @@ They should not be copied into new semantic-continuity modules.
 
 See `docs/TERMINOLOGY_AUDIT.md`.
 
-## Active formal milestone — GREEN-3
+## Active formal milestone — RED-4
 
 RED-1 established that two distinct target bindings for the same semantic script both pass the capability-plus-lowering gate.
 
@@ -87,7 +87,15 @@ GREEN-3 adds a generic target-specific \`ProtocolModel(State, Step)\` with an ex
 
 See \`docs/research/GREEN3_PROTOCOL_TRANSITION_CHECK.md\`.
 
-This closes the RED-3 protocol-sequencing gap relative to the stated model. Concrete observations/effects, persistence, timing, and simulator/physical-device conformance remain open.
+This closes the RED-3 protocol-sequencing gap relative to the stated model.
+
+RED-4 now freezes the GREEN-3-valid binding, representation, and protocol execution and mutates only the post-execution observation. A machine-checked witness shows that both outcomes pass GREEN-3 because observed semantic effect is outside its model.
+
+See \`docs/research/RED4_OBSERVATION_BLINDNESS.md\`.
+
+This establishes the next narrow gap: **a valid modeled realization is not the same thing as an observed semantic effect**.
+
+Observation provenance, payload-to-trace linkage, persistence, timing, and simulator/physical-device conformance remain open.
 
 The motivating case is:
 
