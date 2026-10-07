@@ -628,6 +628,20 @@ class PaninianFormalCompiler:
         """
         return [node.to_word() for node in ir_list]
 
+    def get_last_ir(self):
+        """
+        Return an immutable snapshot of the final validated IR from the most
+        recent successful compilation.
+
+        This is the supported inspection boundary for conformance tooling.
+        Callers must not depend on the compiler's private _last_ir storage.
+        """
+        if not hasattr(self, "_last_ir"):
+            raise RuntimeError(
+                "No final IR is available; compile_source() must succeed first"
+            )
+        return tuple(self._last_ir)
+
     def print_ir(self, source_or_ir, label="Prakriya IR"):
         """Print the Prakriya IR. Accepts source string or IR list."""
         if isinstance(source_or_ir, str):
@@ -743,14 +757,9 @@ class PaninianFormalCompiler:
         if print_ir:
             self.print_ir(ir_list)
 
-        # Expose the final IR for external inspection (Sprint 14 verified chain).
-        # The list is stored after all passes (Sandhi, Paribhasha, L1/L2 checks)
-        # so it reflects exactly what will be lowered.
-        self._last_ir = ir_list
-
-        # Expose the final IR for external inspection (Sprint 14 verified chain).
-        # Stored after all passes so it reflects exactly what will be lowered.
-        self._last_ir = ir_list
+        # Preserve the final validated IR for the supported get_last_ir()
+        # inspection boundary used by conformance tooling.
+        self._last_ir = list(ir_list)
 
         return self.emit_from_ir(ir_list)
 
