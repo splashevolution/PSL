@@ -515,10 +515,18 @@ class PaninianFormalCompiler:
                 )
             node.constraints.append("P4-ok")
 
+            # P2 state transition: explicit WRITE/STORE establishes a live
+            # written target; explicit Lopa consumes that state.  Anuvrtti
+            # Lopa remains a chain operation whose concrete target is resolved
+            # at runtime from prior context.
             if (node.opcode in (0x05, 0xCC)
                     and node.comp != self.COMP_ANUVRTTI
                     and node.target is not None):
                 written_targets.add(node.target)
+            elif (node.opcode == self.OPCODE_LOPA
+                    and node.comp != self.COMP_ANUVRTTI
+                    and node.target is not None):
+                written_targets.discard(node.target)
 
     # ------------------------------------------------------------------
     # Sprint 8: Lowering invariants
