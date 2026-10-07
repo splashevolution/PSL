@@ -55,7 +55,7 @@ They should not be copied into new semantic-continuity modules.
 
 See `docs/TERMINOLOGY_AUDIT.md`.
 
-## Active formal milestone — RED-3
+## Active formal milestone — GREEN-3
 
 RED-1 established that two distinct target bindings for the same semantic script both pass the capability-plus-lowering gate.
 
@@ -83,7 +83,11 @@ See \`docs/research/RED3_PROTOCOL_BLINDNESS.md\`.
 
 This establishes the next narrow gap: **binding correctness plus representation correctness is not protocol/state correctness**.
 
-Persistence, timing, and physical-device conformance remain open.
+GREEN-3 adds a generic target-specific \`ProtocolModel(State, Step)\` with an executable state-transition checker. The PVM32 witness is a fail-closed state machine rather than a comparison against one magic trace. It accepts the reference configuration/write/ACK/exit sequence and rejects the RED-3 missing-configuration sequence.
+
+See \`docs/research/GREEN3_PROTOCOL_TRANSITION_CHECK.md\`.
+
+This closes the RED-3 protocol-sequencing gap relative to the stated model. Concrete observations/effects, persistence, timing, and simulator/physical-device conformance remain open.
 
 The motivating case is:
 
