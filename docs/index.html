@@ -6,9 +6,9 @@
     <meta name="theme-color" content="#101318" />
     <meta
       name="description"
-      content="Paninian Systems Language: a research prototype exploring proof-relevant semantic scripts that can outlive syntax and hardware."
+      content="PSL is an open formal-systems research project investigating semantic continuity across changing implementations and hardware generations."
     />
-    <title>Paninian Systems Language — Meaning outlives syntax</title>
+    <title>PSL — Software intent should outlive hardware</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -16,7 +16,7 @@
 
     <header class="site-header">
       <div class="container header-inner">
-        <a class="brand" href="#top" aria-label="Paninian Systems Language home">
+        <a class="brand" href="#top" aria-label="PSL home">
           <span class="brand-mark" aria-hidden="true">
             <svg viewBox="0 0 40 40" role="img">
               <path d="M8 10h24M8 20h24M8 30h24" />
@@ -27,14 +27,14 @@
           </span>
           <span>
             <strong>PSL</strong>
-            <span class="brand-subtitle">Paninian Systems Language</span>
+            <span class="brand-subtitle">Semantic continuity research</span>
           </span>
         </a>
         <nav class="site-nav" aria-label="Primary navigation">
           <a href="#architecture">Architecture</a>
           <a href="#evidence">Evidence</a>
           <a href="#research">Research</a>
-          <a class="nav-cta" href="https://github.com/splashevolution/paninian-systems-language">GitHub <span aria-hidden="true">↗</span></a>
+          <a class="nav-cta" href="https://github.com/splashevolution/PSL">GitHub <span aria-hidden="true">↗</span></a>
         </nav>
       </div>
     </header>
@@ -43,36 +43,36 @@
       <section class="hero" id="top" aria-labelledby="hero-title">
         <div class="container hero-grid">
           <div class="hero-copy">
-            <p class="eyebrow"><span class="pulse-dot" aria-hidden="true"></span> An open research prototype</p>
-            <h1 id="hero-title">Meaning should outlive syntax.<br /><em>Software intent should outlive hardware.</em></h1>
+            <p class="eyebrow"><span class="pulse-dot" aria-hidden="true"></span> Open formal-systems research</p>
+            <h1 id="hero-title">Software intent should<br /><em>outlive hardware.</em></h1>
             <p class="hero-lede">
-              PSL explores whether one proof-relevant semantic derivation can survive changes in human notation, compiler stacks, and hardware generations.
+              PSL investigates whether a stable semantic contract can survive materially different hardware generations while target realizations are independently checked and incompatible targets fail closed.
             </p>
             <div class="hero-actions">
-              <a class="button button-primary" href="#architecture">Explore the architecture <span aria-hidden="true">↓</span></a>
-              <a class="button button-quiet" href="https://github.com/splashevolution/paninian-systems-language">View the research on GitHub <span aria-hidden="true">↗</span></a>
+              <a class="button button-primary" href="#architecture">Explore the research <span aria-hidden="true">↓</span></a>
+              <a class="button button-quiet" href="https://github.com/splashevolution/PSL">View the repository <span aria-hidden="true">↗</span></a>
             </div>
             <div class="status-row" aria-label="Project status">
               <span class="status-chip"><i class="chip-dot amber" aria-hidden="true"></i>Research prototype</span>
               <span class="status-chip"><i class="chip-dot blue" aria-hidden="true"></i>Lean 4</span>
-              <span class="status-chip"><i class="chip-dot blue" aria-hidden="true"></i>CI-backed formal line</span>
-              <span class="status-chip"><i class="chip-dot muted" aria-hidden="true"></i>PVM32 Driver 0</span>
+              <span class="status-chip"><i class="chip-dot blue" aria-hidden="true"></i>CI-backed baseline</span>
+              <span class="status-chip"><i class="chip-dot muted" aria-hidden="true"></i>Virtual-hardware first</span>
             </div>
           </div>
 
-          <div class="hero-orbit" aria-label="The core separation: word is not meaning, and meaning is not a hardware address">
+          <div class="hero-orbit" aria-label="Semantic meaning is distinct from protocol and hardware address">
             <div class="orbit-grid" aria-hidden="true"></div>
             <div class="orbit-ring ring-one" aria-hidden="true"></div>
             <div class="orbit-ring ring-two" aria-hidden="true"></div>
             <div class="orbit-core">
-              <span class="core-kicker">semantic identity</span>
-              <strong>1001</strong>
-              <span class="core-caption">proof-relevant intent</span>
+              <span class="core-kicker">semantic contract</span>
+              <strong>C</strong>
+              <span class="core-caption">observable intent</span>
             </div>
-            <div class="orbit-label label-word"><span>WORD</span><b>≠</b></div>
-            <div class="orbit-label label-meaning"><span>MEANING</span><b>≠</b></div>
+            <div class="orbit-label label-word"><span>MEANING</span><b>≠</b></div>
+            <div class="orbit-label label-meaning"><span>PROTOCOL</span><b>≠</b></div>
             <div class="orbit-label label-address"><span>HARDWARE<br />ADDRESS</span></div>
-            <p class="orbit-note"><span class="line-icon" aria-hidden="true">↗</span> Hypothesis: plural surfaces<br />and realizations can share one semantic identity.</p>
+            <p class="orbit-note"><span class="line-icon" aria-hidden="true">↗</span> Hypothesis: one contract can survive<br />different faithful realizations.</p>
           </div>
         </div>
         <div class="hero-rule" aria-hidden="true"><span></span><span></span><span></span></div>
@@ -82,72 +82,67 @@
         <div class="container">
           <div class="section-intro intro-split">
             <div>
-              <p class="section-index">01 / Architecture</p>
-              <h2 id="architecture-title">A semantic layer between expression and execution.</h2>
+              <p class="section-index">01 / Research problem</p>
+              <h2 id="architecture-title">A checked boundary between meaning and realization.</h2>
             </div>
-            <p class="section-summary">The surface chooses how humans express an intent. The driver chooses how a machine realizes it. Neither may silently change what it means.</p>
+            <p class="section-summary">A target does not become correct because a driver says it supports an operation. Its observable behavior must satisfy the semantic contract.</p>
           </div>
 
           <div class="architecture-frame">
             <div class="architecture-head">
-              <span class="label-mono">PSL / DERIVATION PATH</span>
-              <span class="architecture-note">one direction of trust · explicit boundaries</span>
+              <span class="label-mono">PSL / CONTINUITY PATH</span>
+              <span class="architecture-note">small trusted boundary · fail closed</span>
             </div>
-            <div class="architecture-flow" aria-label="Human, AI, or visual surfaces flow through semantic elaboration, Paninian Semantic Script, Lean trust boundary, verified semantic intent, and capability-declaring drivers to target hardware.">
+            <div class="architecture-flow" aria-label="Semantic contract flows through checked realization evidence into a formal device model.">
               <div class="flow-step surfaces-step">
                 <span class="flow-number">01</span>
-                <div><strong>Human / AI / Visual Surfaces</strong><small>English · Devanagari · future UI</small></div>
+                <div><strong>Semantic Contract</strong><small>observable requirements · target neutral</small></div>
               </div>
               <div class="flow-arrow" aria-hidden="true">↓</div>
               <div class="flow-step elaboration-step">
                 <span class="flow-number">02</span>
-                <div><strong>Semantic Elaboration</strong><small>surface-specific; preservation is a proof obligation</small></div>
+                <div><strong>Target Realization</strong><small>binding · representation · sequencing · state</small></div>
               </div>
               <div class="flow-arrow" aria-hidden="true">↓</div>
               <div class="flow-step script-step featured-step">
                 <span class="flow-number">03</span>
-                <div><strong>Paninian Semantic Script</strong><small><span class="script-word">Prakriyā</span> · identity · relations · action · context</small></div>
-                <span class="featured-tag">semantic kernel</span>
+                <div><strong>Realization Evidence</strong><small>proof / certificate material connecting behavior to contract</small></div>
+                <span class="featured-tag">research boundary</span>
               </div>
               <div class="flow-arrow" aria-hidden="true">↓</div>
               <div class="flow-step lean-step">
                 <span class="flow-number">04</span>
-                <div><strong>Lean Trust Boundary</strong><small>legality is checked, not implied</small></div>
-              </div>
-              <div class="flow-arrow" aria-hidden="true">↓</div>
-              <div class="flow-step intent-step">
-                <span class="flow-number">05</span>
-                <div><strong>Lean-checked Semantic Intent</strong><small>the meaning a driver is allowed to realize</small></div>
+                <div><strong>Lean-checked Relation</strong><small>accept only what the evidence establishes</small></div>
               </div>
               <div class="flow-arrow" aria-hidden="true">↓</div>
               <div class="driver-band">
                 <div class="flow-step driver-step">
-                  <span class="flow-number">06</span>
-                  <div><strong>Capability-Declaring Drivers</strong><small>independent realization contracts</small></div>
+                  <span class="flow-number">05</span>
+                  <div><strong>Device Model</strong><small>formal state · transitions · observations</small></div>
                 </div>
-                <div class="target-grid" aria-label="Example target drivers">
-                  <div class="target-card"><strong>PVM32</strong><small>Driver 0</small></div>
-                  <div class="target-card"><strong>Modern</strong><small>proposed target</small></div>
-                  <div class="target-card"><strong>Legacy</strong><small>planned target</small></div>
+                <div class="target-grid" aria-label="Example virtual target generations">
+                  <div class="target-card"><strong>Legacy A</strong><small>accept if faithful</small></div>
+                  <div class="target-card"><strong>Modern B</strong><small>accept independently</small></div>
+                  <div class="target-card"><strong>Incapable C</strong><small>refuse</small></div>
                 </div>
               </div>
             </div>
-            <div class="architecture-foot"><span>Every unproved arrow remains visible.</span><span class="foot-rule" aria-hidden="true"></span><span>Refuse what cannot be derived.</span></div>
+            <div class="architecture-foot"><span>Protocol validity is not semantic correctness.</span><span class="foot-rule" aria-hidden="true"></span><span>Refuse incompatible realizations.</span></div>
           </div>
 
           <div class="witness-grid">
             <div class="witness-copy">
-              <p class="section-index">A small formal witness</p>
-              <h3>Plural surfaces. One explicitly assigned script.</h3>
-              <p>This is a deliberately narrow witness, not universal multilingual parsing. The PVM32 binding belongs to the driver, not to semantic identity.</p>
-              <a class="text-link" href="https://github.com/splashevolution/paninian-systems-language/tree/feature/semantic-script-kernel">Read the semantic-script line <span aria-hidden="true">↗</span></a>
+              <p class="section-index">First falsification target</p>
+              <h3>A dishonest binding should fail.</h3>
+              <p>The current capability gate can say that a target supports a write. It cannot yet prove that the write reaches the right resource with the right representation and state transition.</p>
+              <a class="text-link" href="https://github.com/splashevolution/PSL/blob/main/docs/THREAT_MODEL.md">Read the threat model <span aria-hidden="true">↗</span></a>
             </div>
-            <div class="witness-code" role="img" aria-label="The English and Devanagari surface expressions map to one SemanticScript witness, which the PVM32 driver binds to a hardware address">
-              <div class="code-line"><span class="code-label">surface / en</span><code>write status</code></div>
-              <div class="code-line"><span class="code-label">surface / sa</span><code>स्थितिः लिखति ।</code></div>
-              <div class="code-connector" aria-hidden="true"><span>↓</span><span>same explicitly assigned SemanticScript witness</span><span>↓</span></div>
-              <div class="code-line highlight-line"><span class="code-label">driver / PVM32</span><code>SemanticId(1001) → 0x20</code></div>
-              <div class="code-line address-line"><span class="code-label">realization</span><code>0x200520F0</code></div>
+            <div class="witness-code" role="img" aria-label="A semantic setpoint operation contrasted with correct and incorrect legacy realizations">
+              <div class="code-line"><span class="code-label">contract</span><code>SetSetpoint(25.0 °C)</code></div>
+              <div class="code-line"><span class="code-label">legacy encoding</span><code>25.0 °C → 250 → register 0x20</code></div>
+              <div class="code-connector" aria-hidden="true"><span>↓</span><span>realization evidence must justify behavior</span><span>↓</span></div>
+              <div class="code-line highlight-line"><span class="code-label">accept</span><code>config → write 250 @ 0x20 → ACK</code></div>
+              <div class="code-line address-line"><span class="code-label">reject</span><code>write 25 · 0x21 · wrong unit · wrong state</code></div>
             </div>
           </div>
         </div>
@@ -156,61 +151,61 @@
       <section class="section section-dark separation-section" id="separation" aria-labelledby="separation-title">
         <div class="container">
           <div class="section-intro">
-            <p class="section-index">02 / The separation</p>
-            <h2 id="separation-title">Three domains. One discipline.</h2>
+            <p class="section-index">02 / Three boundaries</p>
+            <h2 id="separation-title">Contract. Evidence. Device behavior.</h2>
           </div>
           <div class="domain-grid">
             <article class="domain-card domain-surface">
               <span class="domain-number">01</span>
-              <p class="card-kicker">Surface</p>
-              <h3>How humans express it.</h3>
-              <p>Words, scripts, diagrams, or future interfaces can offer different handles for the same intended computation.</p>
+              <p class="card-kicker">Contract</p>
+              <h3>What must remain true.</h3>
+              <p>Inputs, observations, preconditions, postconditions, authority, persistence, atomicity, and allowed failure behavior.</p>
               <span class="card-rule" aria-hidden="true"></span>
-              <code>surface ≠ semantic identity</code>
+              <code>meaning ≠ target encoding</code>
             </article>
             <article class="domain-card domain-meaning">
               <span class="domain-number">02</span>
-              <p class="card-kicker">Meaning</p>
-              <h3>What the program means.</h3>
-              <p>A derivation makes identity, relations, actions, context, authority, and exceptions inspectable.</p>
+              <p class="card-kicker">Evidence</p>
+              <h3>Why a realization is legal.</h3>
+              <p>A realization must justify its mapping and behavior. A boolean capability declaration is only an early gate.</p>
               <span class="card-rule" aria-hidden="true"></span>
-              <code>meaning → legal derivation</code>
+              <code>claim ≠ proof</code>
             </article>
             <article class="domain-card domain-realization">
               <span class="domain-number">03</span>
-              <p class="card-kicker">Realization</p>
-              <h3>How machines perform it.</h3>
-              <p>A driver declares what its target can do and refuses a realization when the contract cannot be met.</p>
+              <p class="card-kicker">Device</p>
+              <h3>How a generation performs it.</h3>
+              <p>Different targets may use different words, registers, protocols, state machines, or persistence mechanisms.</p>
               <span class="card-rule" aria-hidden="true"></span>
-              <code>driver → capability contract</code>
+              <code>different realization · same contract</code>
             </article>
           </div>
-          <p class="separation-statement"><span>Surface</span> chooses expression. <span>Driver</span> chooses realization. <strong>Neither may silently change what it means.</strong></p>
+          <p class="separation-statement"><span>Hardware may change.</span> <span>Realizations may change.</span> <strong>The accepted semantic obligation must not silently change.</strong></p>
         </div>
       </section>
 
-      <section class="section section-light" id="panini" aria-labelledby="panini-title">
+      <section class="section section-light" id="threats" aria-labelledby="threats-title">
         <div class="container">
           <div class="section-intro intro-split">
             <div>
-              <p class="section-index">03 / Why Pāṇini?</p>
-              <h2 id="panini-title">A derivational system, not a costume.</h2>
+              <p class="section-index">03 / Adversarial model</p>
+              <h2 id="threats-title">Syntactically valid can still be semantically wrong.</h2>
             </div>
-            <p class="section-summary">Pāṇinian concepts contribute a vocabulary for structure: identity, relationships, inherited context, authority, exceptions, composition, and the legality of applying a rule.</p>
+            <p class="section-summary">The realization generator is treated as untrusted. The checker must detect errors that an ordinary protocol parser would happily accept.</p>
           </div>
           <div class="concept-grid">
-            <div class="concept-card"><strong>Sañjñā</strong><span>semantic identity</span></div>
-            <div class="concept-card"><strong>Kāraka</strong><span>relationships</span></div>
-            <div class="concept-card"><strong>Kriyā</strong><span>action</span></div>
-            <div class="concept-card"><strong>Anuvṛtti</strong><span>inherited context</span></div>
-            <div class="concept-card"><strong>Adhikāra</strong><span>authority scope</span></div>
-            <div class="concept-card"><strong>Lopa</strong><span>consumption / termination</span></div>
-            <div class="concept-card"><strong>Utsarga / Apavāda</strong><span>default / exception</span></div>
-            <div class="concept-card"><strong>Paribhāṣā</strong><span>legality of rules</span></div>
-            <div class="concept-card"><strong>Sandhi</strong><span>lawful composition</span></div>
-            <div class="concept-card"><strong>Prakriyā</strong><span>inspectable derivation</span></div>
+            <div class="concept-card"><strong>Wrong binding</strong><span>correct command · wrong resource</span></div>
+            <div class="concept-card"><strong>Wrong scale</strong><span>25 vs 250</span></div>
+            <div class="concept-card"><strong>Wrong unit</strong><span>°C vs °F</span></div>
+            <div class="concept-card"><strong>Wrong endian</strong><span>valid bytes · wrong value</span></div>
+            <div class="concept-card"><strong>Wrong state</strong><span>missing configuration mode</span></div>
+            <div class="concept-card"><strong>Wrong ordering</strong><span>legal steps · illegal sequence</span></div>
+            <div class="concept-card"><strong>Wrong persistence</strong><span>volatile vs required durable state</span></div>
+            <div class="concept-card"><strong>False capability</strong><span>claim without behavioral evidence</span></div>
+            <div class="concept-card"><strong>Silent degradation</strong><span>incompatible target hidden by emulation</span></div>
+            <div class="concept-card"><strong>Ignored failure</strong><span>NACK / error discarded</span></div>
           </div>
-          <div class="callout callout-quiet"><span class="callout-mark" aria-hidden="true">∴</span><p>Sanskrit terminology alone is not novelty. The experiment fails if these concepts are only labels on conventional compiler machinery.</p></div>
+          <div class="callout callout-quiet"><span class="callout-mark" aria-hidden="true">∴</span><p>The new work begins where the current boolean capability model stops: capability declaration is not realization correctness.</p></div>
         </div>
       </section>
 
@@ -219,62 +214,62 @@
           <div class="section-intro intro-split">
             <div>
               <p class="section-index">04 / Evidence, not hype</p>
-              <h2 id="evidence-title">Different evidence answers different questions.</h2>
+              <h2 id="evidence-title">Different evidence supports different claims.</h2>
             </div>
-            <p class="section-summary">A passing QEMU run is executable evidence. A Lean theorem is a theorem about the model it states. Neither automatically proves the other.</p>
+            <p class="section-summary">A theorem about a device model is not automatically a theorem about physical silicon. A virtual execution is evidence about that virtual implementation, not a proof of every real device.</p>
           </div>
           <div class="evidence-table" role="table" aria-label="Evidence boundary map">
             <div class="evidence-row evidence-header" role="row"><span role="columnheader">Evidence type</span><span role="columnheader">What it can support</span><span role="columnheader">Boundary</span></div>
-            <div class="evidence-row" role="row"><span class="evidence-name" role="cell"><i class="evidence-icon test" aria-hidden="true">✓</i>Compiler regression tests</span><span role="cell">Expected compiler behavior on covered cases</span><span class="boundary-tag test-tag" role="cell">test evidence</span></div>
-            <div class="evidence-row" role="row"><span class="evidence-name" role="cell"><i class="evidence-icon bridge" aria-hidden="true">↔</i>Finite Python → Lean conformance</span><span role="cell">Agreement on the enumerated accepted streams</span><span class="boundary-tag bridge-tag" role="cell">finite evidence</span></div>
-            <div class="evidence-row" role="row"><span class="evidence-name" role="cell"><i class="evidence-icon lean" aria-hidden="true">λ</i>Lean abstract-machine theorems</span><span role="cell">Properties of the formal model and stated assumptions</span><span class="boundary-tag lean-tag" role="cell">theorem</span></div>
-            <div class="evidence-row" role="row"><span class="evidence-name" role="cell"><i class="evidence-icon qemu" aria-hidden="true">▶</i>Historical QEMU execution</span><span role="cell">Observed behavior of a system-emulated target</span><span class="boundary-tag qemu-tag" role="cell">execution evidence</span></div>
-            <div class="evidence-row" role="row"><span class="evidence-name" role="cell"><i class="evidence-icon open" aria-hidden="true">○</i>Hardware / refinement obligations</span><span role="cell">Open work required to connect models to silicon</span><span class="boundary-tag open-tag" role="cell">unproved</span></div>
+            <div class="evidence-row" role="row"><span class="evidence-name" role="cell"><i class="evidence-icon lean" aria-hidden="true">λ</i>Lean theorem</span><span role="cell">Properties of the stated semantic/device models</span><span class="boundary-tag lean-tag" role="cell">formal</span></div>
+            <div class="evidence-row" role="row"><span class="evidence-name" role="cell"><i class="evidence-icon test" aria-hidden="true">✓</i>Regression / adversarial tests</span><span role="cell">Covered cases and expected rejection behavior</span><span class="boundary-tag test-tag" role="cell">finite</span></div>
+            <div class="evidence-row" role="row"><span class="evidence-name" role="cell"><i class="evidence-icon qemu" aria-hidden="true">▶</i>QEMU / Renode execution</span><span role="cell">Observed behavior of selected virtual targets</span><span class="boundary-tag qemu-tag" role="cell">simulation</span></div>
+            <div class="evidence-row" role="row"><span class="evidence-name" role="cell"><i class="evidence-icon bridge" aria-hidden="true">↔</i>Model conformance evidence</span><span role="cell">Evidence connecting executable model and formal model</span><span class="boundary-tag bridge-tag" role="cell">separate obligation</span></div>
+            <div class="evidence-row" role="row"><span class="evidence-name" role="cell"><i class="evidence-icon open" aria-hidden="true">○</i>Physical-device conformance</span><span role="cell">Not established merely by proving the model</span><span class="boundary-tag open-tag" role="cell">future / empirical</span></div>
           </div>
-          <div class="proof-chain" aria-label="Evidence chain from surface expression to machine device, with open boundaries visible"><span>surface</span><i>→</i><span>elaboration</span><i>→</i><span class="chain-trusted">Lean meaning</span><i>→</i><span>driver</span><i>→</i><span class="chain-open">machine / device</span></div>
+          <div class="proof-chain" aria-label="Evidence chain from semantic contract to device implementation"><span>contract</span><i>→</i><span>realization evidence</span><i>→</i><span class="chain-trusted">checked relation</span><i>→</i><span>device model</span><i>→</i><span class="chain-open">virtual / physical implementation</span></div>
         </div>
       </section>
 
       <section class="section section-light" id="state" aria-labelledby="state-title">
         <div class="container">
           <div class="section-intro">
-            <p class="section-index">05 / Current state</p>
-            <h2 id="state-title">A repaired line with its limits named.</h2>
+            <p class="section-index">05 / Current baseline</p>
+            <h2 id="state-title">Verified foundations, narrower claims.</h2>
           </div>
           <div class="state-layout">
             <div class="state-list">
-              <div class="state-item"><span class="state-check">01</span><p>Canonical live-written state</p></div>
-              <div class="state-item"><span class="state-check">02</span><p>Anuvṛtti context and Adhikāra scope</p></div>
-              <div class="state-item"><span class="state-check">03</span><p>Lopa inheritance boundary</p></div>
-              <div class="state-item"><span class="state-check">04</span><p>Privileged Store / Asiddha Lopa rules</p></div>
-              <div class="state-item"><span class="state-check">05</span><p>Axiom-free forward simulation in the abstract control / execution model</p></div>
+              <div class="state-item"><span class="state-check">01</span><p>Repaired canonical abstract/control semantics</p></div>
+              <div class="state-item"><span class="state-check">02</span><p>Lean forward-simulation results for the verified model</p></div>
+              <div class="state-item"><span class="state-check">03</span><p>Finite Python → Lean compiler-output conformance bridge</p></div>
+              <div class="state-item"><span class="state-check">04</span><p>Semantic identity separated from PVM32 target binding</p></div>
+              <div class="state-item"><span class="state-check">05</span><p>Capability refusal witness — not yet realization proof</p></div>
             </div>
             <div class="state-metric">
               <span class="metric-label">finite compiler-output cross-check</span>
               <div class="metric-number">65 <small>accepted<br />streams</small></div>
               <div class="metric-divider" aria-hidden="true"></div>
               <div class="metric-number">22 <small>distinct<br />ABI words</small></div>
-              <p>Current evidence is finite and scoped. It does not extrapolate to end-to-end hardware correctness.</p>
+              <p>The current surface-language witness is historical prototype evidence, not the new research claim.</p>
             </div>
           </div>
         </div>
       </section>
 
-      <section class="section legacy-section" id="legacy" aria-labelledby="legacy-title">
+      <section class="section legacy-section" id="virtual" aria-labelledby="virtual-title">
         <div class="container">
           <div class="legacy-layout">
             <div>
-              <p class="section-index">06 / Hardware should age. Meaning shouldn't.</p>
-              <h2 id="legacy-title">Old hardware should not need to learn PSL.</h2>
-              <p class="legacy-lede">A thin driver should translate modern semantic intent into whatever protocol the old machine already speaks. If it cannot satisfy the contract, PSL must refuse the realization.</p>
-              <div class="legacy-principles"><span>same semantic script</span><span>independent drivers</span><span>capability refusal</span></div>
+              <p class="section-index">06 / Virtual hardware first</p>
+              <h2 id="virtual-title">No specialized equipment required.</h2>
+              <p class="legacy-lede">The primary laboratory is deterministic virtual hardware. QEMU, Renode, and small frozen emulators may instantiate device generations while Lean defines the formal boundary.</p>
+              <div class="legacy-principles"><span>reproducible</span><span>adversarial</span><span>CI-friendly</span></div>
             </div>
-            <div class="legacy-diagram" aria-label="The same SemanticScript is realized through modern and legacy drivers, with the legacy driver speaking to a QEMU device">
-              <div class="legacy-script">same <strong>SemanticScript</strong></div>
+            <div class="legacy-diagram" aria-label="The same semantic contract is evaluated against legacy, modern, and incapable virtual device generations">
+              <div class="legacy-script">same <strong>Semantic Contract</strong></div>
               <div class="legacy-branches" aria-hidden="true"><span></span><span></span></div>
               <div class="legacy-targets">
-                <div class="legacy-target"><strong>modern driver</strong><small>proposed modern target</small></div>
-                <div class="legacy-target"><strong>legacy driver</strong><small>planned legacy target · primitive old protocol</small><b>↓</b><em>QEMU device</em></div>
+                <div class="legacy-target"><strong>Legacy A</strong><small>old-style protocol · fixed-point · stateful</small><b>↓</b><em>ACCEPT if proved</em></div>
+                <div class="legacy-target"><strong>Modern B / Incapable C</strong><small>different realization / insufficient semantics</small><b>↓</b><em>ACCEPT / REFUSE</em></div>
               </div>
             </div>
           </div>
@@ -285,15 +280,15 @@
         <div class="container">
           <div class="kill-header">
             <div><p class="section-index">07 / Kill criteria</p><h2 id="kill-title">Make the hypothesis falsifiable.</h2></div>
-            <p>Failure is a useful research result. PSL should become smaller rather than preserve an attractive claim the evidence cannot support.</p>
+            <p>PSL should become smaller if standard refinement techniques provide the same result more directly or if the continuity boundary cannot localize change.</p>
           </div>
           <div class="criteria-grid">
-            <div class="criteria-item"><span>01</span><p>Independent surfaces only work because their meaning is manually preassigned.</p></div>
-            <div class="criteria-item"><span>02</span><p>A second target forces target-specific concepts into the semantic kernel.</p></div>
-            <div class="criteria-item"><span>03</span><p>A dishonest or incapable driver cannot be rejected.</p></div>
-            <div class="criteria-item"><span>04</span><p>Legacy and modern targets cannot share one semantic program.</p></div>
-            <div class="criteria-item"><span>05</span><p>Proof obligations grow globally rather than locally.</p></div>
-            <div class="criteria-item"><span>06</span><p>Practical complexity outweighs the value over conventional tooling.</p></div>
+            <div class="criteria-item"><span>01</span><p>Wrong bindings cannot be rejected without trusting the driver.</p></div>
+            <div class="criteria-item"><span>02</span><p>A second target contaminates the semantic contract with hardware details.</p></div>
+            <div class="criteria-item"><span>03</span><p>Hardware substitution forces unrelated semantic proofs to be redone.</p></div>
+            <div class="criteria-item"><span>04</span><p>The checker becomes as complex or trusted as the realization itself.</p></div>
+            <div class="criteria-item"><span>05</span><p>Simulation-specific assumptions leak into the formal semantic layer.</p></div>
+            <div class="criteria-item"><span>06</span><p>No measurable advantage appears over a conventional refinement baseline.</p></div>
           </div>
         </div>
       </section>
@@ -301,30 +296,30 @@
       <section class="section section-light" id="research" aria-labelledby="research-title">
         <div class="container">
           <div class="section-intro intro-split">
-            <div><p class="section-index">08 / Research position</p><h2 id="research-title">The claim that survives the prior art.</h2></div>
-            <p class="section-summary">PSL does not claim to have invented the ingredients. The question is whether they can meet at two independently checkable boundaries.</p>
+            <div><p class="section-index">08 / Research position</p><h2 id="research-title">The hypothesis, not a novelty claim.</h2></div>
+            <p class="section-summary">Verified compilation, proof-carrying systems, platform-independent models, verified drivers, legacy emulation, and multilingual syntax already have substantial prior art.</p>
           </div>
           <div class="position-grid">
             <div class="not-claim">
               <p class="card-kicker">Not novel individually</p>
-              <ul><li>portable IRs</li><li>multi-view / projectional editing</li><li>heterogeneous backends</li><li>verified compilation</li><li>proof-carrying code</li><li>stable semantic identifiers</li></ul>
+              <ul><li>verified compilation</li><li>proof-carrying code / hardware</li><li>platform-independent models</li><li>portable/extensible IRs</li><li>verified device drivers</li><li>legacy emulation</li></ul>
             </div>
-            <blockquote class="hypothesis-card"><span class="quote-mark">“</span><p>Can one proof-relevant semantic derivation be independently elaborated from plural surfaces and independently realized by capability-declaring drivers, with machine-checkable evidence at both boundaries?</p><cite>the surviving research hypothesis</cite></blockquote>
+            <blockquote class="hypothesis-card"><span class="quote-mark">“</span><p>Can a stable semantic contract survive materially different hardware generations while independent realizations are checked for behavioral compatibility, incompatible targets fail closed, and upstream semantic evidence remains reusable?</p><cite>current PSL research hypothesis</cite></blockquote>
           </div>
         </div>
       </section>
 
       <section class="section paths-section" aria-labelledby="paths-title">
         <div class="container">
-          <div class="section-intro"><p class="section-index">09 / Repository paths</p><h2 id="paths-title">Read the work where it lives.</h2></div>
+          <div class="section-intro"><p class="section-index">09 / Research documents</p><h2 id="paths-title">Claims, boundaries, and evaluation are explicit.</h2></div>
           <div class="path-grid">
-            <a class="path-card" href="https://github.com/splashevolution/paninian-systems-language/blob/main/README.md"><span>01</span><strong>README</strong><small>current claim boundaries</small><b aria-hidden="true">↗</b></a>
-            <a class="path-card" href="https://github.com/splashevolution/paninian-systems-language/tree/repair/verification-contract"><span>02</span><strong>Verification repair</strong><small>active formal line</small><b aria-hidden="true">↗</b></a>
-            <a class="path-card" href="https://github.com/splashevolution/paninian-systems-language/tree/feature/semantic-script-kernel"><span>03</span><strong>Semantic-script kernel</strong><small>active research line</small><b aria-hidden="true">↗</b></a>
-            <a class="path-card" href="https://github.com/splashevolution/paninian-systems-language/blob/repair/verification-contract/docs/VERIFICATION_STATUS.md"><span>04</span><strong>Verification ledger</strong><small>evidence and limits</small><b aria-hidden="true">↗</b></a>
-            <a class="path-card" href="https://github.com/splashevolution/paninian-systems-language/blob/repair/verification-contract/docs/SEMANTIC_GAPS.md"><span>05</span><strong>Known semantic gaps</strong><small>open obligations</small><b aria-hidden="true">↗</b></a>
-            <a class="path-card" href="https://github.com/splashevolution/paninian-systems-language/blob/feature/semantic-script-kernel/docs/SEMANTIC_ARCHITECTURE.md"><span>06</span><strong>Semantic architecture</strong><small>kernel design</small><b aria-hidden="true">↗</b></a>
-            <a class="path-card historical-path" href="https://github.com/splashevolution/paninian-systems-language/tree/main/paper"><span>07</span><strong>Paper / history</strong><small>historical material · reconcile with ledger</small><b aria-hidden="true">↗</b></a>
+            <a class="path-card" href="https://github.com/splashevolution/PSL/blob/main/docs/RESEARCH_CHARTER.md"><span>01</span><strong>Research charter</strong><small>scope and kill criteria</small><b aria-hidden="true">↗</b></a>
+            <a class="path-card" href="https://github.com/splashevolution/PSL/blob/main/docs/PRIOR_ART.md"><span>02</span><strong>Prior art</strong><small>what is already known</small><b aria-hidden="true">↗</b></a>
+            <a class="path-card" href="https://github.com/splashevolution/PSL/blob/main/docs/NOVELTY_CONTRACT.md"><span>03</span><strong>Novelty contract</strong><small>what PSL may and may not claim</small><b aria-hidden="true">↗</b></a>
+            <a class="path-card" href="https://github.com/splashevolution/PSL/blob/main/docs/SEMANTIC_CONTINUITY.md"><span>04</span><strong>Semantic continuity</strong><small>formal research model</small><b aria-hidden="true">↗</b></a>
+            <a class="path-card" href="https://github.com/splashevolution/PSL/blob/main/docs/THREAT_MODEL.md"><span>05</span><strong>Threat model</strong><small>dishonest and defective realizations</small><b aria-hidden="true">↗</b></a>
+            <a class="path-card" href="https://github.com/splashevolution/PSL/blob/main/docs/EVALUATION_PROTOCOL.md"><span>06</span><strong>Evaluation protocol</strong><small>virtual generations and proof reuse</small><b aria-hidden="true">↗</b></a>
+            <a class="path-card historical-path" href="https://github.com/splashevolution/PSL/blob/main/docs/historical/PANINIAN_ORIGIN.md"><span>07</span><strong>Project origin</strong><small>Pāṇinian exploration · historical</small><b aria-hidden="true">↗</b></a>
           </div>
         </div>
       </section>
@@ -332,15 +327,15 @@
       <section class="north-star" aria-labelledby="north-star-title">
         <div class="container north-star-inner">
           <p class="section-index">10 / North star</p>
-          <h2 id="north-star-title">Describe what computation means.</h2>
-          <div class="north-star-lines"><p>Let surfaces choose how humans express it.</p><p>Let drivers choose how machines realize it.</p><p>Make legality explicit.</p><p>Refuse what cannot be derived.</p><p>Keep every proof boundary visible.</p></div>
-          <div class="north-star-footer"><span>Meaning is invariant.</span><span>Prakriyā evolves.</span><span>Hardware supplies capabilities.</span><span>Paribhāṣā decides legality.</span><span>Lean establishes trust.</span></div>
+          <h2 id="north-star-title">Preserve meaning across implementation change.</h2>
+          <div class="north-star-lines"><p>Require evidence for realization.</p><p>Refuse incompatible targets.</p><p>Keep every proof boundary visible.</p><p>Measure what survives evolution.</p></div>
+          <div class="north-star-footer"><span>Meaning is explicit.</span><span>Realizations may evolve.</span><span>Evidence establishes compatibility.</span><span>Lean establishes the formal boundary.</span></div>
         </div>
       </section>
     </main>
 
     <footer class="site-footer">
-      <div class="container footer-inner"><a class="brand" href="#top"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 40 40"><path d="M8 10h24M8 20h24M8 30h24" /><circle cx="12" cy="10" r="2.5" /><circle cx="28" cy="20" r="2.5" /><circle cx="18" cy="30" r="2.5" /></svg></span><span><strong>PSL</strong><span class="brand-subtitle">Paninian Systems Language</span></span></a><p>Open research prototype · meaning outlives syntax</p><a href="https://github.com/splashevolution/paninian-systems-language">GitHub <span aria-hidden="true">↗</span></a></div>
+      <div class="container footer-inner"><a class="brand" href="#top"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 40 40"><path d="M8 10h24M8 20h24M8 30h24" /><circle cx="12" cy="10" r="2.5" /><circle cx="28" cy="20" r="2.5" /><circle cx="18" cy="30" r="2.5" /></svg></span><span><strong>PSL</strong><span class="brand-subtitle">Semantic continuity research</span></span></a><p>Open research prototype · software intent should outlive hardware</p><a href="https://github.com/splashevolution/PSL">GitHub <span aria-hidden="true">↗</span></a></div>
     </footer>
   </body>
 </html>

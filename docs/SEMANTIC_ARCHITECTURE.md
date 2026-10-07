@@ -2,144 +2,134 @@
 
 ## Status
 
-This document introduces an architectural layer above the repaired PVM32
-compiler/ABI. It does not replace or weaken the verified repair baseline.
+This document describes the relationship between the **current implemented baseline** and the new **semantic-continuity research direction**.
 
-## Principle
+The repository currently contains a verified PVM32/control-semantic line and an initial semantic-script / driver experiment. Those artifacts remain valid within their stated proof boundaries.
 
-**Meaning is not a word. Meaning is not an address.**
+They are not the final definition of PSL.
 
-PSL separates three concerns:
+## Current implemented separation
+
+The present code establishes an initial separation:
 
 ```text
-surface expression
-      ↓ elaboration
-language-neutral semantic script
-      ↓ validation / proof
-verified semantic script
-      ↓ driver contract
-target realization
+surface witness
+      ↓
+SemanticScript
+      ↓
+capability gate
+      ↓
+PVM32 binding / realization
 ```
 
-A natural-language spelling is a view over meaning. A target address, opcode,
-register, GPU buffer, network topic, or circuit is a realization of meaning.
+`SemanticId` is deliberately distinct from a target address.
 
-Neither owns the meaning.
+The PVM32 driver owns the binding from semantic identity to its target-specific byte/address representation.
+
+This remains useful.
+
+## Current limitation
+
+The present `DriverContract` primarily asks whether a target **declares support** for required capabilities.
+
+Conceptually:
+
+```text
+supports(write) = true
+```
+
+That does not establish realization correctness.
+
+It cannot by itself prove that:
+
+- the semantic identity is bound to the correct physical resource;
+- the target representation uses the correct unit or scale;
+- required device state transitions occur;
+- acknowledgements/failures are handled correctly;
+- persistence or atomicity requirements are satisfied.
+
+Therefore capability acceptance is only an early gate.
+
+## New target architecture
+
+The research direction is:
+
+```text
+                     SemanticContract
+                           │
+                    observable meaning
+                           │
+                    ┌──────┴──────┐
+                    ▼             ▼
+              realization A  realization B
+                + evidence      + evidence
+                    │             │
+                    ▼             ▼
+                  checker       checker
+                    │             │
+                DeviceModel A DeviceModel B
+```
+
+The realization generator may be untrusted.
+
+The checker should fail closed when evidence does not establish that the target behavior satisfies the semantic contract.
 
 ## Semantic identity
 
-`SemanticId` is deliberately opaque with respect to human vocabulary and
-hardware layout.
+The invariant survives from the earlier work:
 
-The same semantic identity may be rendered by different surfaces:
+> **Meaning is not a word. Meaning is not a hardware address.**
 
-```text
-English      "write status"       ┐
-Devanagari   "स्थितिः लिखति ।"    ├─> same SemanticScript
-future UI    graphical expression ┘
-```
+For the new research programme the stronger concern is:
 
-Likewise, a driver may map that identity differently:
+> **A target binding is not correct merely because it is well-formed or capability-compatible. It must realize the required observable semantics.**
 
-```text
-PVM32 driver  -> device address / ABI word
-GPU driver    -> buffer / kernel operation
-FPGA driver   -> signal / pipeline
-future target -> target-specific realization
-```
+## PVM32 role
 
-The mapping is driver-owned, not language-owned.
+PVM32 remains **Driver / Realization 0**: a historical executable instance beneath the emerging theory.
 
-## Kernel vocabulary
+It should eventually become one test case for the stronger realization relation rather than the definition of the semantic architecture.
 
-The first kernel intentionally models only enough structure to establish the
-separation:
+## Surface-language experiment
 
-- `SemanticId` — stable semantic identity
-- `RelationKind` — source, destination, instrument, context
-- `Action` — read, write, store, consume
-- `Authority` — ordinary or privileged
-- `ContextMode` — explicit or inherited
-- `SemanticTerm` — one target-independent semantic operation
-- `SemanticScript` — ordered semantic terms
-- `SurfaceForm` — human rendering plus elaborated meaning
-- `DriverContract` — capabilities a realization declares
+The current kernel contains an explicit English/Devanagari witness.
 
-These names are implementation labels inside the formal model, not mandatory
-surface-language vocabulary.
+That theorem is intentionally narrow: both surfaces are explicitly assigned the same `SemanticScript`. It is not evidence of independent multilingual elaboration and is no longer a central research line.
 
-## Driver rule
+The witness may remain as historical implementation evidence until a later cleanup removes it safely.
 
-A driver may choose **how** to realize a script. It may not silently change
-**what** the script means.
+## Evidence boundary
 
-The kernel therefore derives required capabilities from semantic terms and a
-driver explicitly declares what it supports. Unsupported scripts are rejected
-at the driver boundary.
-
-This is only the first gate. Capability acceptance is not yet a refinement
-proof.
-
-## PVM32 status
-
-The existing 32-bit ABI and Python compiler are preserved as the first
-realization family: **PVM32 Driver 0**.
-
-Current verified work below this layer remains valid:
+The intended long-term chain is:
 
 ```text
-Python final IR
-    -> Lean validation
-    -> ValidProgram
-    -> abstract execution
+SemanticContract
+      ↓ formal obligation
+Realization + evidence
+      ↓ checked relation
+DeviceModel
+      ↓ simulation / separate conformance evidence
+Virtual or physical implementation
 ```
 
-The branch now contains the first executable PVM32 adapter. The semantic
-identity used by the cross-surface witness is `SemanticId(1001)`; only the
-PVM32 binding table associates it with target byte `0x20`.
+Each arrow must state its evidence class.
 
-Lean machine-checks both:
+## Non-goals
 
-```text
-English:    "write status"
-Devanagari: "स्थितिः लिखति ।"
-        ↓
-same SemanticScript
-        ↓ PVM32 Driver 0 binding
-0x200520F0
-```
+This architecture does not currently claim:
 
-The theorem `surface_choice_does_not_change_pvm32_realization` establishes
-that these two explicitly elaborated surfaces have the same PVM32 realization.
-
-This is a **witness**, not yet a universal source-language theorem. The larger
-open obligation remains:
-
-```text
-arbitrary supported SurfaceForm
-    -> SemanticScript
-    -> PVM32 realization
-    -> existing Prakriya IR / validator
-```
-
-That correspondence must be specified and proved rather than assumed.
-
-## Non-goals of this first kernel
-
-This commit does not claim:
-
-- universal natural-language understanding;
-- that the four relation kinds are a complete Kāraka model;
-- that PVM32 refinement from `SemanticScript` is proved;
-- GPU/FPGA portability;
-- source-language equivalence beyond explicit elaboration;
-- that semantic IDs solve ontology alignment by themselves.
-
-Those are later research problems.
+- universal source-to-hardware correctness;
+- equivalence between virtual hardware and physical silicon;
+- that boolean capabilities constitute refinement proofs;
+- that a specific source language is privileged;
+- that Pāṇinian structures are necessary;
+- that the continuity hypothesis is already established.
 
 ## Architectural invariant
 
 Future PSL work should preserve:
 
-> Surfaces may change words. Drivers may change realization. Neither may
-> silently change semantic meaning.
+> Semantic meaning is explicit.  
+> Target realizations are independently justified.  
+> Incompatible targets fail closed.  
+> Proof boundaries remain visible.
