@@ -143,7 +143,8 @@ GREEN-2 closes exactly the RED-2 witness:
 * the same checker rejects the wrong-scale candidate.
 -/
 theorem green2_separates_red2_witness :
-    red2_same_resource ∧
+    referenceSetpointWrite.resource =
+      wrongScaleSetpointWrite.resource ∧
     green1CandidateGate
       pvm32Green1DeviceModel
       statusIdentity
