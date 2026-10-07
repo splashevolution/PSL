@@ -12,13 +12,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: leanprover/lean-action@v1
-        with:
-          auto-config: false
-          build: false
-          test: false
-          lint: false
-      - name: Typecheck PSL Lean project
+
+      - name: Install elan and pinned Lean toolchain
+        shell: bash
         run: |
+          set -euo pipefail
+          curl -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+          "$HOME/.elan/bin/lean" --version
+          "$HOME/.elan/bin/lake" --version
+
+      - name: Typecheck PSL Lean project
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PATH="$HOME/.elan/bin:$PATH"
           cd lean
           lake build
