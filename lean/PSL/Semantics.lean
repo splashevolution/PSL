@@ -1,32 +1,18 @@
+import Std.Tactic
+
 /-
   PSL/Semantics.lean
-  Pāṇinian Systems Language — Formal Semantics (Lean 4)
+  Pāṇinian Systems Language — auditable formal core
 
-  This file encodes the complete PSL type system as Lean 4 definitions.
-  It is the formal counterpart of src/utils/paninian_compiler.py.
+  This file intentionally separates:
+    * executable definitions,
+    * closed Lean theorems,
+    * open compiler/refinement goals.
 
-  Structure:
-    §1  ABI word type and field extractors
-    §2  IRNode type (Prakriya layer)
-    §3  Machine state (State Transition Semantics)
-    §4  Compilation phases as pure functions
-    §5  Paribhāṣā predicates (P1–P4b)
-    §6  Lowering invariants (L1, L2)
-    §7  Sañjñā identity predicate
-    §8  State transition relation
-    §9  Step-level safety theorems (closed)
-    §10 compile_sound — closed proof of compile_sound_statement
-
-  CompCert correspondence:
-    Clight  ≅  PSL source (.pvm)
-    Cminor  ≅  IRNode list (Prakriya IR)
-    RTL     ≅  ABI word list (32-bit big-endian binary)
-    compile_correct  ≅  compile_sound (§10)
+  It does not claim source-to-RV32 compiler correctness.
 -/
 
--- ─────────────────────────────────────────────────────────────────────────────
--- §1  ABI Word Type
--- ─────────────────────────────────────────────────────────────────────────────
+-- §1 ABI ----------------------------------------------------------------------
 
 structure ABIWord where
   ring   : Fin 16
@@ -51,59 +37,34 @@ def OP_CLOSE : Fin 256 := ⟨0xBB, by decide⟩
 
 def ASIDDHA_BASE : Nat := 0x50
 
--- ─────────────────────────────────────────────────────────────────────────────
--- §2  IRNode Type (Prakriya Layer)
--- ─────────────────────────────────────────────────────────────────────────────
+-- §2 Prakriya IR --------------------------------------------------------------
 
 inductive Region where
-  | Siddha  : Region
-  | Asiddha : Region
+  | Siddha
+  | Asiddha
   deriving Repr, BEq
 
 def classify (addr : Nat) : Region :=
   if addr < ASIDDHA_BASE then .Siddha else .Asiddha
 
 structure IRNode where
-  ring        : Fin 16
-  comp        : Fin 16
-  opcode      : Fin 256
-  target      : Option (Fin 256)
-  cond        : Fin 16
-  flags       : Fin 16
-  in_adhikara : Bool
-  sandhi_fused: Bool
+  ring         : Fin 16
+  comp         : Fin 16
+  opcode       : Fin 256
+  target       : Option (Fin 256)
+  cond         : Fin 16
+  flags        : Fin 16
+  in_adhikara  : Bool
+  sandhi_fused : Bool
   deriving Repr, BEq
 
 def IRNode.lower (n : IRNode) : ABIWord :=
-  let t     := n.target.map Fin.val |>.getD 0x00
-  let flags := if n.sandhi_fused then 0x0E else n.flags.val
   { ring   := n.ring
   , comp   := n.comp
   , opcode := n.opcode
-  , target := ⟨t, by omega⟩
-  , flags  := ⟨flags % 16, by omega⟩
+  , target := n.target.getD ⟨0, by decide⟩
+  , flags  := if n.sandhi_fused then ⟨0x0E, by decide⟩ else n.flags
   , cond   := n.cond }
-
--- ─────────────────────────────────────────────────────────────────────────────
--- §3  Machine State
--- ─────────────────────────────────────────────────────────────────────────────
-
-structure MachineState where
-  mem     : Nat → Nat
-  ring    : Nat
-  written : Nat → Bool
-  halted  : Bool
-  deriving Repr
-
-def MachineState.initial : MachineState :=
-  { mem     := fun _ => 0
-  , ring    := 2
-  , written := fun _ => false
-  , halted  := false }
-
--- ─────────────────────────────────────────────────────────────────────────────
--- §4  Compilation Phases
--- ─────────────────────────────────────────────────────────────────────────────
 
 def lowerAll (ir : List IRNode) : List ABIWord :=
   ir.map IRNode.lower
@@ -111,421 +72,344 @@ def lowerAll (ir : List IRNode) : List ABIWord :=
 def sanjnaaEquiv (ir1 ir2 : List IRNode) : Prop :=
   lowerAll ir1 = lowerAll ir2
 
--- ─────────────────────────────────────────────────────────────────────────────
--- §5  Paribhāṣā Predicates (P1–P4b)
--- ─────────────────────────────────────────────────────────────────────────────
+-- §2.1 Numeric ABI decoder -----------------------------------------------------
 
-def isAnuvrtti (n : IRNode) : Bool :=
-  n.comp.val == 1 && n.target.isNone
+def fin16 (n : Nat) : Fin 16 :=
+  ⟨n % 16, Nat.mod_lt _ (by decide)⟩
 
-def isSentinel (n : IRNode) : Bool :=
-  n.opcode == OP_OPEN || n.opcode == OP_CLOSE
+def fin256 (n : Nat) : Fin 256 :=
+  ⟨n % 256, Nat.mod_lt _ (by decide)⟩
 
-def p1_ok (ir : List IRNode) : Prop :=
-  match ir.filter (fun n => !isSentinel n) with
-  | []     => True
-  | n :: _ => !isAnuvrtti n
+/-- Decode the low 32 bits of a numeric ABI word into PSL fields. -/
+def decodeABIWord (n : Nat) : ABIWord :=
+  { ring   := fin16  (n / 0x10000000)
+  , comp   := fin16  (n / 0x01000000)
+  , opcode := fin256 (n / 0x00010000)
+  , target := fin256 (n / 0x00000100)
+  , flags  := fin16  (n / 0x00000010)
+  , cond   := fin16  n }
 
-def p2_ok (ir : List IRNode) : Prop :=
-  let rec check (remaining : List IRNode) (written : Finset Nat) : Prop :=
-    match remaining with
-    | []      => True
-    | n :: ns =>
-        let tgt := n.target.map Fin.val
-        let lopa_ok : Prop :=
-          if n.opcode == OP_LOPA && n.comp.val ≠ 1 then
-            match tgt with
-            | none   => True
-            | some a => a ∈ written
-          else True
-        let written' : Finset Nat :=
-          match tgt with
-          | none   => written
-          | some a =>
-            if n.opcode == OP_WRITE || n.opcode == OP_STORE then
-              written ∪ {a}
-            else if n.opcode == OP_LOPA then
-              written.erase a
-            else written
-        lopa_ok ∧ check ns written'
-  check ir ∅
+theorem decode_known_word_roundtrip :
+    ABIWord.toNat (decodeABIWord 0x200530F0) = 0x200530F0 := by
+  native_decide
 
-def p3_ok (ir : List IRNode) : Prop :=
-  ∀ n ∈ ir,
-    n.ring.val == 0 →
-    n.comp.val ≠ 1 →
-    (n.target.map Fin.val).getD 0x00 ≠ 0x00 →
-    (n.target.map Fin.val).getD 0x00 ≥ ASIDDHA_BASE
+-- §3 Canonical control state ----------------------------------------------------
 
-def p4_ok (ir : List IRNode) : Prop :=
-  ∀ n ∈ ir,
-    n.ring.val == 0 →
-    ¬isSentinel n →
-    n.in_adhikara
+/-
+  Ring is an instruction attribute in the PSL ABI, not mutable global state.
+  Runtime control state therefore tracks only the information that flows
+  between instructions: written targets, Anuvrtti context, and Adhikara depth.
+-/
 
-def p4b_ok (ir : List IRNode) : Prop :=
-  ∀ n ∈ ir,
-    (n.opcode == OP_STORE || n.opcode == OP_LOPA) →
-    (n.target.map Fin.val).getD 0x00 ≥ ASIDDHA_BASE →
-    n.in_adhikara
+structure ControlState where
+  written       : Nat → Bool
+  contextTarget : Option Nat
+  scopeDepth    : Nat
 
-def paribhasha_ok (ir : List IRNode) : Prop :=
-  p1_ok ir ∧ p2_ok ir ∧ p3_ok ir ∧ p4_ok ir ∧ p4b_ok ir
+def ControlState.initial : ControlState :=
+  { written       := fun _ => false
+  , contextTarget := none
+  , scopeDepth    := 0 }
 
--- ─────────────────────────────────────────────────────────────────────────────
--- §6  Lowering Invariants (L1, L2)
--- ─────────────────────────────────────────────────────────────────────────────
+def markWritten (written : Nat → Bool) (a : Nat) : Nat → Bool :=
+  fun x => if x = a then true else written x
 
-theorem L1_lower_deterministic (n : IRNode) :
-    IRNode.lower n = IRNode.lower n := rfl
+def markErased (written : Nat → Bool) (a : Nat) : Nat → Bool :=
+  fun x => if x = a then false else written x
 
-theorem L2_lower_length_preserving (ir : List IRNode) :
+/-- Resolve the effective ABI target. COMP=1 inherits live context. -/
+def resolveTarget (c : ControlState) (w : ABIWord) : Option Nat :=
+  if w.comp.val = 1 then c.contextTarget else some w.target.val
+
+def isExecutableOpcode (w : ABIWord) : Bool :=
+  w.opcode == OP_WRITE ||
+  w.opcode == OP_READ ||
+  w.opcode == OP_STORE ||
+  w.opcode == OP_LOPA
+
+/-
+  Canonical control transition.
+
+  This mirrors the repaired Python validator:
+    * Anuvrtti requires live context.
+    * Lopa requires a live write and clears inheritance context.
+    * Ring-0 may resolve only to Asiddha and only inside Adhikara.
+    * Store always requires Adhikara and Ring-0.
+    * Asiddha Lopa requires Adhikara and Ring-0.
+    * Ring-2 Write may target either region; visibility is a memory-model issue.
+-/
+def controlStep (c : ControlState) (w : ABIWord) : Option ControlState :=
+  if w.opcode = OP_OPEN then
+    some { c with scopeDepth := c.scopeDepth + 1 }
+  else if w.opcode = OP_CLOSE then
+    if c.scopeDepth = 0 then none
+    else some { c with scopeDepth := c.scopeDepth - 1 }
+  else if isExecutableOpcode w = false then
+    none
+  else
+    match resolveTarget c w with
+    | none => none
+    | some tgt =>
+        if w.ring.val = 0 ∧ tgt < ASIDDHA_BASE then
+          none
+        else if w.ring.val = 0 ∧ c.scopeDepth = 0 then
+          none
+        else if w.opcode = OP_STORE ∧
+                (c.scopeDepth = 0 ∨ w.ring.val ≠ 0) then
+          none
+        else if w.opcode = OP_LOPA ∧ tgt ≥ ASIDDHA_BASE ∧
+                (c.scopeDepth = 0 ∨ w.ring.val ≠ 0) then
+          none
+        else if w.opcode = OP_LOPA ∧ c.written tgt ≠ true then
+          none
+        else
+          let written' :=
+            if w.opcode = OP_WRITE ∨ w.opcode = OP_STORE then
+              markWritten c.written tgt
+            else if w.opcode = OP_LOPA then
+              markErased c.written tgt
+            else
+              c.written
+          let context' :=
+            if w.opcode = OP_LOPA then none
+            else if w.comp.val = 1 then c.contextTarget
+            else some tgt
+          some
+            { written       := written'
+            , contextTarget := context'
+            , scopeDepth    := c.scopeDepth }
+
+-- §4 Abstract machine ----------------------------------------------------------
+
+structure MachineState where
+  control : ControlState
+  mem     : Nat → Nat
+
+def MachineState.initial : MachineState :=
+  { control := ControlState.initial
+  , mem     := fun _ => 0 }
+
+def applyMem
+    (mem : Nat → Nat) (c : ControlState) (w : ABIWord) : Nat → Nat :=
+  match resolveTarget c w with
+  | none => mem
+  | some tgt =>
+      if w.opcode = OP_WRITE ∨ w.opcode = OP_STORE then
+        fun a => if a = tgt then 1 else mem a
+      else if w.opcode = OP_LOPA then
+        fun a => if a = tgt then 0 else mem a
+      else
+        mem
+
+def advance (s : MachineState) (w : ABIWord) (c' : ControlState) : MachineState :=
+  { control := c'
+  , mem := applyMem s.mem s.control w }
+
+def step (s : MachineState) (w : ABIWord) : Option MachineState :=
+  match controlStep s.control w with
+  | none    => none
+  | some c' => some (advance s w c')
+
+def execute : List ABIWord → MachineState → Option MachineState
+  | [], s => some s
+  | w :: ws, s =>
+      match step s w with
+      | none    => none
+      | some s' => execute ws s'
+
+-- §5 Canonical validation ------------------------------------------------------
+
+def validateWords : List ABIWord → ControlState → Option ControlState
+  | [], c => some c
+  | w :: ws, c =>
+      match controlStep c w with
+      | none    => none
+      | some c' => validateWords ws c'
+
+def validateIR (ir : List IRNode) : Option ControlState :=
+  validateWords (lowerAll ir) ControlState.initial
+
+/-- A valid PSL control program validates and closes every Adhikara scope. -/
+def ValidProgram (ir : List IRNode) : Prop :=
+  ∃ cFinal,
+    validateIR ir = some cFinal ∧
+    cFinal.scopeDepth = 0
+
+/-- Executable certificate boundary for Python-emitted IR. -/
+def validateIRClosed (ir : List IRNode) : Bool :=
+  match validateIR ir with
+  | none => false
+  | some cFinal => cFinal.scopeDepth == 0
+
+/--
+A successful executable IR certificate is sufficient to construct Lean's
+propositional ValidProgram witness. This keeps generated compiler certificates
+inside the same trust boundary as the abstract validator.
+-/
+theorem validateIRClosed_sound
+    (ir : List IRNode)
+    (hcert : validateIRClosed ir = true) :
+    ValidProgram ir := by
+  unfold validateIRClosed at hcert
+  cases hrun : validateIR ir with
+  | none =>
+      simp [hrun] at hcert
+  | some cFinal =>
+      have hclosed : cFinal.scopeDepth = 0 := by
+        simpa [hrun] using hcert
+      exact ⟨cFinal, hrun, hclosed⟩
+
+/-- Executable CI boundary for numeric compiler output. -/
+def validateEncodedClosed (words : List Nat) : Bool :=
+  match validateWords (words.map decodeABIWord) ControlState.initial with
+  | none => false
+  | some cFinal => cFinal.scopeDepth == 0
+
+-- §6 Closed lowering facts ----------------------------------------------------
+
+theorem lower_preserves_core_fields (n : IRNode) :
+    (IRNode.lower n).ring = n.ring ∧
+    (IRNode.lower n).comp = n.comp ∧
+    (IRNode.lower n).opcode = n.opcode ∧
+    (IRNode.lower n).cond = n.cond := by
+  simp [IRNode.lower]
+
+theorem lowerAll_length_preserving (ir : List IRNode) :
     (lowerAll ir).length = ir.length := by
   simp [lowerAll]
 
-theorem lowerAll_binary_eq (ir1 ir2 : List IRNode)
-    (h : lowerAll ir1 = lowerAll ir2) :
-    ∀ i, (lowerAll ir1).get? i = (lowerAll ir2).get? i := by
-  intro i; rw [h]
+theorem sanjnaa_equiv_is_binary_identity
+    (ir1 ir2 : List IRNode)
+    (h : sanjnaaEquiv ir1 ir2) :
+    lowerAll ir1 = lowerAll ir2 := by
+  exact h
 
--- ─────────────────────────────────────────────────────────────────────────────
--- §7  Sañjñā Identity Theorem
--- ─────────────────────────────────────────────────────────────────────────────
+-- §7 Closed control-safety facts ----------------------------------------------
 
-theorem sanjnaa_identity_is_binary_identity
-    (ir_named ir_direct : List IRNode)
-    (h : sanjnaaEquiv ir_named ir_direct) :
-    lowerAll ir_named = lowerAll ir_direct := h
+def openWord : ABIWord :=
+  { ring := ⟨0, by decide⟩
+  , comp := ⟨0, by decide⟩
+  , opcode := OP_OPEN
+  , target := ⟨0, by decide⟩
+  , flags := ⟨0xF, by decide⟩
+  , cond := ⟨0, by decide⟩ }
 
--- ─────────────────────────────────────────────────────────────────────────────
--- §8  State Transition Relation
--- ─────────────────────────────────────────────────────────────────────────────
+def closeWord : ABIWord :=
+  { ring := ⟨0, by decide⟩
+  , comp := ⟨0, by decide⟩
+  , opcode := OP_CLOSE
+  , target := ⟨0, by decide⟩
+  , flags := ⟨0xF, by decide⟩
+  , cond := ⟨0, by decide⟩ }
 
-def step (s : MachineState) (w : ABIWord) : Option MachineState :=
-  if s.halted then none
-  else
-    let tgt := w.target.val
-    match w.opcode with
-    | ⟨0x05, _⟩ =>
-      if tgt < ASIDDHA_BASE then
-        some { s with
-          mem     := fun a => if a == tgt then 1 else s.mem a
-          written := fun a => if a == tgt then true else s.written a }
-      else none
-    | ⟨0xCC, _⟩ =>
-      if s.ring == 0 && tgt ≥ ASIDDHA_BASE then
-        some { s with
-          mem     := fun a => if a == tgt then 1 else s.mem a
-          written := fun a => if a == tgt then true else s.written a }
-      else none
-    | ⟨0x00, _⟩ =>
-      if s.ring == 0 && (w.comp.val == 1 || s.written tgt) then
-        some { s with
-          mem     := fun a => if a == tgt then 0 else s.mem a
-          written := fun a => if a == tgt then false else s.written a }
-      else none
-    | ⟨0xAA, _⟩ => some { s with ring := 0 }
-    | ⟨0xBB, _⟩ => some { s with ring := 2 }
-    | _          => some s
+theorem open_increments_scope (c : ControlState) :
+    controlStep c openWord =
+      some { c with scopeDepth := c.scopeDepth + 1 } := by
+  simp [controlStep, openWord, OP_OPEN, OP_CLOSE]
 
-def execute (words : List ABIWord) (s0 : MachineState) : Option MachineState :=
-  words.foldlM step s0
+theorem close_at_zero_fails (c : ControlState) (hzero : c.scopeDepth = 0) :
+    controlStep c closeWord = none := by
+  simp [controlStep, closeWord, OP_OPEN, OP_CLOSE, hzero]
 
--- ─────────────────────────────────────────────────────────────────────────────
--- §9  Step-level Safety Theorems (closed)
--- ─────────────────────────────────────────────────────────────────────────────
+theorem step_of_controlStep
+    (s : MachineState) (w : ABIWord) (c' : ControlState)
+    (h : controlStep s.control w = some c') :
+    step s w = some (advance s w c') := by
+  simp [step, h]
 
-theorem lopa_requires_prior_write
-    (s : MachineState) (w : ABIWord)
-    (hring       : s.ring = 0)
-    (hnotwritten : ¬s.written w.target.val)
-    (hcomp       : w.comp.val ≠ 1) :
-    w.opcode = OP_LOPA →
-    step s w = none := by
-  intro hop
-  simp [step, hop, OP_LOPA, hring, hcomp, hnotwritten]
+-- §8 Forward simulation: validator -> abstract execution ----------------------
 
-theorem write_to_asiddha_fails
-    (s : MachineState) (w : ABIWord)
-    (htgt : w.target.val ≥ ASIDDHA_BASE) :
-    w.opcode = OP_WRITE →
-    step s w = none := by
-  intro hop
-  simp [step, hop, OP_WRITE, ASIDDHA_BASE]
-  omega
+/--
+If control validation succeeds for a word stream, abstract execution succeeds
+from any machine state whose control state is the validator's starting state,
+and both end in the same control state.
 
-theorem open_close_ring_identity (s : MachineState) (hh : s.halted = false) :
-    let w_open  : ABIWord :=
-      { ring := ⟨0, by decide⟩, comp := ⟨0, by decide⟩, opcode := OP_OPEN
-      , target := ⟨0, by decide⟩, flags := ⟨0xF, by decide⟩, cond := ⟨0, by decide⟩ }
-    let w_close : ABIWord :=
-      { ring := ⟨0, by decide⟩, comp := ⟨0, by decide⟩, opcode := OP_CLOSE
-      , target := ⟨0, by decide⟩, flags := ⟨0xF, by decide⟩, cond := ⟨0, by decide⟩ }
-    (step s w_open >>= fun s1 => step s1 w_close).map (·.ring) = some s.ring := by
-  simp [step, OP_OPEN, OP_CLOSE, hh]
-
--- ─────────────────────────────────────────────────────────────────────────────
--- §10  compile_sound — Closed Proof
--- ─────────────────────────────────────────────────────────────────────────────
-
-/-
-  Proof strategy — StepInv:
-
-  We define a state invariant `StepInv s` that captures what is guaranteed
-  true of the machine state at every point during execution of a
-  paribhasha_ok program:
-
-    (1) s.halted = false
-    (2) s.ring = 0 ∨ s.ring = 2   (ring is always a valid privilege level)
-
-  We separately package, for each word w that is about to be executed, the
-  per-word preconditions that make step return `some`:
-
-    WPC (word precondition package) for word w given state s:
-      • w.opcode = OP_WRITE  → w.target.val < ASIDDHA_BASE
-      • w.opcode = OP_STORE  → s.ring = 0 ∧ w.target.val ≥ ASIDDHA_BASE
-      • w.opcode = OP_LOPA   → s.ring = 0 ∧ (w.comp.val = 1 ∨ s.written w.target.val)
-      • w.opcode = OP_OPEN/CLOSE/other → no guard needed (always succeed)
-
-  The `step_ok_of_wpc` lemma shows: StepInv s ∧ WPC w s → ∃ s', step s w = some s' ∧ StepInv s'
-
-  The `compile_sound` proof proceeds by induction on ir.
-  At each step, we derive WPC from paribhasha_ok applied to the head node.
-
-  The connection between paribhasha_ok and WPC:
-    - P3 → WRITE guard (Siddha target)
-    - P4 + P4b + the invariant that OPEN precedes in_adhikara nodes → STORE/LOPA ring guard
-    - P2 → LOPA written guard
-
-  For the ring=0 guard on STORE/LOPA: we use the fact that in a well-formed
-  PSL binary, every in_adhikara node is preceded by an OPEN sentinel which sets
-  ring=0 in the machine state. We capture this through a strengthened invariant
-  `StepInv` that tracks the current adhikara depth.
+This is a genuine axiom-free forward-simulation theorem for the PSL control
+model. It does not claim source-to-RV32 semantic preservation, Sandhi atomicity,
+conditional semantics, or physical-hardware correctness.
 -/
+theorem validateWords_execution
+    (words : List ABIWord) :
+    ∀ (c0 : ControlState) (s0 : MachineState) (cFinal : ControlState),
+      s0.control = c0 →
+      validateWords words c0 = some cFinal →
+      ∃ sFinal,
+        execute words s0 = some sFinal ∧
+        sFinal.control = cFinal := by
+  induction words with
+  | nil =>
+      intro c0 s0 cFinal hcontrol hvalid
+      simp [validateWords] at hvalid
+      subst cFinal
+      refine ⟨s0, ?_, hcontrol⟩
+      rfl
+  | cons w ws ih =>
+      intro c0 s0 cFinal hcontrol hvalid
+      cases hstep : controlStep c0 w with
+      | none =>
+          simp [validateWords, hstep] at hvalid
+      | some c1 =>
+          have hvalidTail : validateWords ws c1 = some cFinal := by
+            simpa [validateWords, hstep] using hvalid
+          have hcontrolStep : controlStep s0.control w = some c1 := by
+            rw [hcontrol]
+            exact hstep
+          have hmachineStep :
+              step s0 w = some (advance s0 w c1) :=
+            step_of_controlStep s0 w c1 hcontrolStep
+          obtain ⟨sFinal, hexecTail, hfinalControl⟩ :=
+            ih c1 (advance s0 w c1) cFinal rfl hvalidTail
+          refine ⟨sFinal, ?_, hfinalControl⟩
+          simp [execute, hmachineStep, hexecTail]
 
-/-- The state invariant. adhikara_depth tracks the current Adhikāra nesting. -/
-structure StepInv (s : MachineState) (adhikara_depth : Nat) : Prop where
-  not_halted  : s.halted = false
-  ring_correct : (adhikara_depth > 0 → s.ring = 0) ∧
-                 (adhikara_depth = 0 → s.ring = 2 ∨ s.ring = 0)
+/-- A validated lowered IR stream cannot abort in the abstract control model. -/
+theorem validated_ir_executes
+    (ir : List IRNode) (cFinal : ControlState)
+    (hvalid : validateIR ir = some cFinal) :
+    ∃ sFinal,
+      execute (lowerAll ir) MachineState.initial = some sFinal ∧
+      sFinal.control = cFinal := by
+  exact validateWords_execution (lowerAll ir)
+    ControlState.initial MachineState.initial cFinal rfl hvalid
 
-/-- Initial state: no Adhikāra, ring=2. -/
-theorem stepInv_initial : StepInv MachineState.initial 0 := by
-  constructor
-  · rfl
-  · constructor
-    · intro h; omega
-    · intro _; right; rfl
-
-/-- Per-word precondition package. -/
-structure WPC (s : MachineState) (w : ABIWord) : Prop where
-  write_siddha   : w.opcode = OP_WRITE → w.target.val < ASIDDHA_BASE
-  store_ring0    : w.opcode = OP_STORE → s.ring = 0
-  store_asiddha  : w.opcode = OP_STORE → w.target.val ≥ ASIDDHA_BASE
-  lopa_ring0     : w.opcode = OP_LOPA  → s.ring = 0
-  lopa_written   : w.opcode = OP_LOPA  → w.comp.val = 1 ∨ s.written w.target.val
-
-/-- Determine the adhikara depth change for a word. -/
-def adhikara_delta (w : ABIWord) : Int :=
-  if w.opcode = OP_OPEN then 1
-  else if w.opcode = OP_CLOSE then -1
-  else 0
-
-/-- step succeeds and preserves StepInv when WPC holds. -/
-theorem step_ok_of_wpc
-    (s : MachineState) (w : ABIWord) (d : Nat)
-    (hinv : StepInv s d)
-    (hwpc : WPC s w) :
-    ∃ s' d', step s w = some s' ∧
-             StepInv s' d' ∧
-             (d' = d + 1 ∨ d' = d - 1 ∨ d' = d) := by
-  simp only [step, hinv.not_halted, ↓reduceIte]
-  -- Case split on opcode
-  by_cases h05 : w.opcode = OP_WRITE
-  · -- WRITE arm
-    have hg : w.target.val < ASIDDHA_BASE := hwpc.write_siddha h05
-    simp only [step, hinv.not_halted, ↓reduceIte, h05, OP_WRITE]
-    simp [hg]
-    refine ⟨_, d, ?_, ?_, Or.inr (Or.inr rfl)⟩
-    · rfl
-    · constructor
-      · exact hinv.not_halted
-      · exact hinv.ring_correct
-  · by_cases hCC : w.opcode = OP_STORE
-    · -- STORE arm
-      have hr : s.ring = 0      := hwpc.store_ring0 hCC
-      have ha : w.target.val ≥ ASIDDHA_BASE := hwpc.store_asiddha hCC
-      simp only [step, hinv.not_halted, ↓reduceIte, hCC, OP_STORE]
-      simp [hr, ha]
-      refine ⟨_, d, ?_, ?_, Or.inr (Or.inr rfl)⟩
-      · rfl
-      · constructor
-        · exact hinv.not_halted
-        · exact hinv.ring_correct
-    · by_cases h00 : w.opcode = OP_LOPA
-      · -- LOPA arm
-        have hr : s.ring = 0 := hwpc.lopa_ring0 h00
-        have hw : w.comp.val = 1 ∨ s.written w.target.val := hwpc.lopa_written h00
-        simp only [step, hinv.not_halted, ↓reduceIte, h00, OP_LOPA]
-        simp [hr]
-        rcases hw with hc | hwt
-        · simp [hc]
-          refine ⟨_, d, ?_, ?_, Or.inr (Or.inr rfl)⟩
-          · rfl
-          · constructor
-            · exact hinv.not_halted
-            · exact hinv.ring_correct
-        · simp [hwt]
-          refine ⟨_, d, ?_, ?_, Or.inr (Or.inr rfl)⟩
-          · rfl
-          · constructor
-            · exact hinv.not_halted
-            · exact hinv.ring_correct
-      · by_cases hAA : w.opcode = OP_OPEN
-        · -- OPEN arm: ring becomes 0, depth increases
-          simp only [step, hinv.not_halted, ↓reduceIte, hAA, OP_OPEN]
-          simp
-          refine ⟨_, d + 1, ?_, ?_, Or.inl rfl⟩
-          · rfl
-          · constructor
-            · exact hinv.not_halted
-            · constructor
-              · intro _; rfl
-              · intro h; omega
-        · by_cases hBB : w.opcode = OP_CLOSE
-          · -- CLOSE arm: ring becomes 2, depth decreases
-            simp only [step, hinv.not_halted, ↓reduceIte, hBB, OP_CLOSE]
-            simp
-            refine ⟨_, d - 1, ?_, ?_, Or.inr (Or.inl rfl)⟩
-            · rfl
-            · constructor
-              · exact hinv.not_halted
-              · constructor
-                · intro h
-                  -- depth d-1 > 0 only if d > 1; PSL programs have single Adhikāra nesting
-                  -- After CLOSE, ring=2 regardless; d-1>0 requires d≥2 which is rejected
-                  -- by the single-nesting constraint tracked through StepInv invariant
-                  omega
-                · intro _; left; rfl
-          · -- Default arm: always returns some s, depth unchanged
-            simp only [step, hinv.not_halted, ↓reduceIte]
-            have hother : ¬(w.opcode = OP_WRITE) ∧ ¬(w.opcode = OP_STORE) ∧
-                          ¬(w.opcode = OP_LOPA)  ∧ ¬(w.opcode = OP_OPEN)  ∧
-                          ¬(w.opcode = OP_CLOSE) :=
-              ⟨h05, hCC, h00, hAA, hBB⟩
-            simp [hother.1, hother.2.1, hother.2.2.1, hother.2.2.2.1, hother.2.2.2.2]
-            exact ⟨s, d, rfl, hinv, Or.inr (Or.inr rfl)⟩
-
-/-
-  Axiom: compile-time P2 predicate implies runtime written-set membership.
-
-  p2_ok tracks, for each LOPA node, whether the target address was written
-  by a prior WRITE or STORE in the IR list. At runtime, s.written tracks
-  the same information. The connection — "p2_ok implies s.written at the
-  moment of execution" — requires a full forward simulation proof relating
-  the compile-time write-set to the runtime MachineState.written function.
-
-  We introduce this as a named axiom, separately verified empirically by
-  the Python executable harness (checks T5-D, T5-F):
-    T5-D: LOPA on a never-written address is rejected at runtime
-    T5-F: Key register (0x50) = 0 after execution (P2 zeroization enforced)
-
-  This corresponds to the "forward simulation" lemma in a full CompCert proof.
--/
-axiom p2_runtime_correctness
-    (s : MachineState) (w : ABIWord) (ir_prefix : List IRNode)
-    (hp2 : True)   -- p2_ok holds for the full list (compile-time)
-    (hexec : True) -- the prefix has been executed from MachineState.initial to s
-    (hop : w.opcode = OP_LOPA)
-    (hcomp : w.comp.val ≠ 1) :
-    s.written w.target.val
-
-/-- Extract WPC for the head node of a paribhasha_ok list. -/
-lemma wpc_of_head_clean
-    (n : IRNode) (ns : List IRNode) (s : MachineState) (d : Nat)
-    (hinv : StepInv s d)
-    (hd_pos : (n.opcode = OP_STORE ∨ n.opcode = OP_LOPA) → d > 0)
-    (hok  : paribhasha_ok (n :: ns)) :
-    WPC s (IRNode.lower n) := by
-  obtain ⟨_hp1, _hp2, _hp3, _hp4, _hp4b⟩ := hok
-  refine ⟨
-    fun hop => by simp [IRNode.lower, OP_WRITE, ASIDDHA_BASE] at hop ⊢; omega,
-    fun hop => by
-      simp [IRNode.lower, OP_STORE] at hop
-      exact hinv.ring_correct.1 (hd_pos (Or.inl rfl)),
-    fun hop => by simp [IRNode.lower, OP_STORE, ASIDDHA_BASE] at hop ⊢; omega,
-    fun hop => by
-      simp [IRNode.lower, OP_LOPA] at hop
-      exact hinv.ring_correct.1 (hd_pos (Or.inr rfl)),
-    fun hop => by
-      simp [IRNode.lower, OP_LOPA] at hop
-      by_cases hc : (IRNode.lower n).comp.val = 1
-      · exact Or.inl hc
-      · exact Or.inr (p2_runtime_correctness s (IRNode.lower n) [] trivial trivial
-          (by simp [IRNode.lower, OP_LOPA]) (by simp [IRNode.lower]; omega))
-  ⟩
-
-/-
-  Main inductive proof of compile soundness.
-
-  Proved by structural induction on the IR list.
-  At each cons step we:
-    1. Extract WPC for the head via wpc_of_head_clean
-    2. Apply step_ok_of_wpc to get s' and the new invariant
-    3. Recurse on the tail with the updated state and invariant
-
-  The depth parameter d tracks the current Adhikāra nesting level.
-  It changes by +1 on OPEN and -1 on CLOSE, reflecting the ring invariant.
-
-  The only non-structural axiom is p2_runtime_correctness, which is
-  verified empirically by the Python executable proof harness.
--/
-theorem compile_sound
+theorem valid_program_executes
     (ir : List IRNode)
-    (hok : paribhasha_ok ir) :
-    ∃ (s_final : MachineState),
-      execute (lowerAll ir) MachineState.initial = some s_final := by
-  simp only [execute, lowerAll]
-  suffices h : ∀ (s : MachineState) (d : Nat),
-      StepInv s d →
-      paribhasha_ok ir →
-      ∃ s', List.foldlM step s (ir.map IRNode.lower) = some s' by
-    obtain ⟨s', hs'⟩ := h MachineState.initial 0 stepInv_initial hok
-    exact ⟨s', hs'⟩
-  intro s d hinv hok'
-  induction ir generalizing s d with
-  | nil  => exact ⟨s, rfl⟩
-  | cons n ns ih =>
-    simp only [List.map, List.foldlM]
-    have hwpc : WPC s (IRNode.lower n) :=
-      wpc_of_head_clean n ns s d hinv
-        (by intro _; omega)
-        hok'
-    obtain ⟨s', d', hs', hinv', _⟩ := step_ok_of_wpc s (IRNode.lower n) d hinv hwpc
-    rw [show List.foldlM step s ((IRNode.lower n) :: ns.map IRNode.lower) =
-            (step s (IRNode.lower n) >>= fun s1 => List.foldlM step s1 (ns.map IRNode.lower))
-        from rfl]
-    rw [hs']
-    simp only [Option.bind_some]
-    have hok_ns : paribhasha_ok ns := by
-      obtain ⟨hp1, hp2, hp3, hp4, hp4b⟩ := hok'
-      exact ⟨
-        by simp [p1_ok] at hp1 ⊢; cases h : (ns.filter _) <;> simp_all,
-        by simp [p2_ok],
-        by intro m hm; exact hp3 m (List.mem_cons_of_mem _ hm),
-        by intro m hm; exact hp4 m (List.mem_cons_of_mem _ hm),
-        by intro m hm; exact hp4b m (List.mem_cons_of_mem _ hm)
-      ⟩
-    exact ih hok_ns s' d' hinv'
+    (hvalid : ValidProgram ir) :
+    ∃ sFinal,
+      execute (lowerAll ir) MachineState.initial = some sFinal ∧
+      sFinal.control.scopeDepth = 0 := by
+  obtain ⟨cFinal, hrun, hclosed⟩ := hvalid
+  obtain ⟨sFinal, hexec, hcontrol⟩ :=
+    validated_ir_executes ir cFinal hrun
+  refine ⟨sFinal, hexec, ?_⟩
+  rw [hcontrol]
+  exact hclosed
 
-/-- The central compile soundness theorem (Sprint 15: formerly a proof obligation).
-    Proved as a corollary of compile_sound by induction on the IR list.
-    Uses one axiom: p2_runtime_correctness (verified empirically by Python harness). -/
-theorem compile_sound_statement :
-    ∀ (ir : List IRNode),
-      paribhasha_ok ir →
-      ∃ (s_final : MachineState),
-        execute (lowerAll ir) MachineState.initial = some s_final :=
-  compile_sound
+/--
+A generated compiler IR certificate that evaluates to true therefore carries
+all the way to non-aborting abstract execution with closed Adhikara scope.
+-/
+theorem certified_ir_executes
+    (ir : List IRNode)
+    (hcert : validateIRClosed ir = true) :
+    ∃ sFinal,
+      execute (lowerAll ir) MachineState.initial = some sFinal ∧
+      sFinal.control.scopeDepth = 0 := by
+  exact valid_program_executes ir (validateIRClosed_sound ir hcert)
+
+-- §9 Explicitly open refinement goals -----------------------------------------
+
+/-
+  Remaining proof boundaries:
+
+  1. Python compiler -> Lean ValidProgram correspondence.
+  2. Avrtti repetition semantics.
+  3. Utsarga/Apavada conditional semantics.
+  4. Sandhi atomicity semantics.
+  5. Lean abstract machine -> canonical RV32 firmware refinement.
+  6. QEMU -> physical-hardware evidence.
+
+  None of these is implied by valid_program_executes.
+-/
 
 -- End of PSL/Semantics.lean

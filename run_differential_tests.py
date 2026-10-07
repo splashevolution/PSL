@@ -1,504 +1,392 @@
 #!/usr/bin/env python3
-"""
-PVM Differential Test Suite
+"""Canonical PSL differential/falsification suite.
 
-Tests that the IR compilation path and the legacy direct-emission path
-produce byte-identical output for every valid PSL program.
+This replaces the pre-repair IR-vs-legacy-emitter comparison.
 
-Four properties verified per program:
-  D1 (Byte identity)        IR words == legacy words, byte-for-byte
-  D2 (Constraint coverage)  Every non-sentinel IRNode carries P1-ok..P4-ok
-  D3 (Word count identity)  len(ir_words) == len(legacy_words)
-  D4 (L1 determinism)       node.to_word() is stable across two calls
+For randomly generated programs from the *currently formalized control subset*
+it checks:
 
-The generator produces structurally valid programs only -- programs that
-would pass validate_ir() -- so all four properties must hold on every run.
+  D1  Fresh compiler instances emit identical word streams.
+  D2  An independent numeric reference validator accepts every emitted stream.
+  D3  Every compiler IR node lowers to the corresponding emitted word.
+  D4  Every emitted value is a 32-bit ABI word.
 
 The generator covers:
-  - Write, Store (Ring 2 only outside scope), Lopa, Anuvrtti
-  - Avrtti (count 2-5)
-  - Sanjnaa symbol declarations
-  - Sandhi pairs (Write+Write, Write+Store on same Asiddha target)
-  - Adhikara scope blocks (Ring-0 Store inside scope)
+  * Ring-2 explicit/inherited Write to Siddha and Asiddha
+  * Siddha Lopa outside Adhikara
+  * scoped Ring-0 Store and inherited Store to Asiddha
+  * scoped Asiddha Lopa
+  * scoped Store/Store Sandhi pair marking
+  * scope open/close and mixed lifecycles
+
+It deliberately excludes Avrtti execution, Utsarga/Apavada conditions, and
+claims of Sandhi atomicity because those are not yet part of the repaired Lean
+execution theorem.
+
+The reference validator is a separate Python implementation over numeric ABI
+words. Agreement is testing evidence, not a formal proof. Lean CI separately
+checks a deterministic finite compiler-output corpus.
 
 Usage:
-    python -B run_differential_tests.py [--count N] [--seed S] [--verbose]
+    python run_differential_tests.py [--count 5000] [--seed 42] [--verbose]
 """
 
+from __future__ import annotations
+
 import argparse
-import importlib.util
 import random
 import sys
-import traceback
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT / "src" / "utils"))
+
+from paninian_compiler import PaninianFormalCompiler
+
+OP_LOPA = 0x00
+OP_WRITE = 0x05
+OP_READ = 0x06
+OP_STORE = 0xCC
+OP_OPEN = 0xAA
+OP_CLOSE = 0xBB
+ASIDDHA_BASE = 0x50
+
+ADDRESSES = (0x20, 0x30, 0x40, 0x50, 0x60, 0x70)
+SIDDHA = tuple(a for a in ADDRESSES if a < ASIDDHA_BASE)
+ASIDDHA = tuple(a for a in ADDRESSES if a >= ASIDDHA_BASE)
 
 
-def load_compiler():
-    spec = importlib.util.spec_from_file_location(
-        "paninian_compiler", ROOT / "src/utils/paninian_compiler.py")
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
+def fields(word: int):
+    return {
+        "ring": (word >> 28) & 0xF,
+        "comp": (word >> 24) & 0xF,
+        "opcode": (word >> 16) & 0xFF,
+        "target": (word >> 8) & 0xFF,
+        "flags": (word >> 4) & 0xF,
+        "cond": word & 0xF,
+    }
 
 
-# ---------------------------------------------------------------------------
-# Program generator
-# ---------------------------------------------------------------------------
+def reference_validate(words):
+    """Independent executable mirror of the repaired control contract."""
+    written = set()
+    context = None
+    depth = 0
 
-# Siddha targets (can be used with Write/Lopa in Ring 2)
-SIDDHA_TARGETS  = [0x30]          # Vak
-# Asiddha targets (can be used with Write/Store in Ring 2, or Ring-0 in scope)
-ASIDDHA_TARGETS = [0x50, 0x60]    # Srotra, Yantra
+    for word in words:
+        f = fields(word)
+        op = f["opcode"]
 
-# Karaka tokens for known addresses
-ADDR_TO_KARAKA = {
-    0x30: "वाचम्",
-    0x50: "श्रोत्रम्",
-    0x60: "यन्त्र",
-}
+        if op == OP_OPEN:
+            depth += 1
+            continue
+
+        if op == OP_CLOSE:
+            if depth == 0:
+                return False
+            depth -= 1
+            continue
+
+        if op not in (OP_LOPA, OP_WRITE, OP_READ, OP_STORE):
+            return False
+
+        if f["comp"] == 1:
+            if context is None:
+                return False
+            target = context
+        else:
+            target = f["target"]
+
+        if f["ring"] == 0 and target < ASIDDHA_BASE:
+            return False
+
+        if f["ring"] == 0 and depth == 0:
+            return False
+
+        if op == OP_STORE and (depth == 0 or f["ring"] != 0):
+            return False
+
+        if (
+            op == OP_LOPA
+            and target >= ASIDDHA_BASE
+            and (depth == 0 or f["ring"] != 0)
+        ):
+            return False
+
+        if op == OP_LOPA and target not in written:
+            return False
+
+        if op in (OP_WRITE, OP_STORE):
+            written.add(target)
+        elif op == OP_LOPA:
+            written.discard(target)
+
+        if op == OP_LOPA:
+            context = None
+        elif f["comp"] != 1:
+            context = target
+
+    return depth == 0
 
 
-class ProgramBuilder:
-    """Builds a valid PSL program as a string, tracking written targets."""
-
+class SourceBuilder:
     def __init__(self, rng: random.Random):
-        self.rng          = rng
-        self.lines        = []
-        self.written      = set()   # targets written in current scope
-        self.prev_target  = None
-        self.in_scope     = False   # inside Adhikara block
-        self.sanjnaa_map  = {}      # name -> addr
-
-    def _karaka(self, addr):
-        """Return the PSL token for a given address (or Sanjnaa name)."""
-        for name, a in self.sanjnaa_map.items():
-            if a == addr and self.rng.random() < 0.3:
-                return name
-        return ADDR_TO_KARAKA.get(addr, "वाचम्")
-
-    def add_sanjnaa(self, name, addr):
-        self.sanjnaa_map[name] = addr
-        self.lines.append(f"सञ्ज्ञा {name} = 0x{addr:02X} ।")
-
-    def add_write(self, addr):
-        """Ring-2 Write to addr. Always valid."""
-        tok = self._karaka(addr)
-        self.lines.append(f"    {tok} लिखति ।")
-        self.written.add(addr)
-        self.prev_target = addr
-
-    def add_anuvrtti_write(self):
-        """Write with no Karaka (inherits prev_target). Requires prev_target."""
-        self.lines.append("    लिखति ।")
-        if self.prev_target is not None:
-            self.written.add(self.prev_target)
-
-    def add_avrtti_write(self, addr, count):
-        """Avrtti Write: count repetitions."""
-        tok = self._karaka(addr)
-        self.lines.append(f"    {tok} आवृत्तिः {count} लिखति ।")
-        self.written.add(addr)
-        self.prev_target = addr
-
-    def add_lopa(self, addr):
-        """Lopa on addr -- requires addr in written."""
-        tok = self._karaka(addr)
-        self.lines.append(f"    {tok} लोपः ।")
-        self.written.discard(addr)
-        self.prev_target = None   # Lopa resets context
-
-    def add_sandhi_pair(self, addr):
-        """Write + Sandhi + Store on same Asiddha target."""
-        tok = self._karaka(addr)
-        self.lines.append(f"    {tok} लिखति ।")
-        self.lines.append("    सन्धिः ।")
-        self.lines.append(f"    {tok} स्थापयति ।")
-        self.written.add(addr)
-        self.prev_target = addr
-
-    def open_adhikara(self):
-        self.lines.append("    अधिकारः {")
-        self.in_scope = True
-
-    def add_ring0_store(self, addr):
-        """Ring-0 Store inside Adhikara scope."""
-        tok = self._karaka(addr)
-        self.lines.append(f"        {tok} स्थापयति ।")
-        self.written.add(addr)
-        self.prev_target = addr
-
-    def close_adhikara(self):
-        self.lines.append("    }")
+        self.rng = rng
+        self.body = []
+        self.written = set()
+        self.context = None
         self.in_scope = False
 
-    def build(self):
-        src = "\n".join(
-            ["तन्त्रशास्त्रम् {"]
-            + ["    " + ln if not ln.startswith("    ") and not ln.startswith("तन्") and not ln.startswith("सञ्") else ln
-               for ln in self.lines]
-            + ["}"]
+    @staticmethod
+    def name(addr):
+        return f"A{addr:02X}"
+
+    def explicit_write(self, addr):
+        indent = "        " if self.in_scope else "    "
+        self.body.append(f"{indent}{self.name(addr)} लिखति ।")
+        self.written.add(addr)
+        self.context = addr
+
+    def inherited_write(self):
+        if self.context is None:
+            return False
+        indent = "        " if self.in_scope else "    "
+        self.body.append(f"{indent}लिखति ।")
+        self.written.add(self.context)
+        return True
+
+    def explicit_lopa(self, addr):
+        # Lopa inside scope is auto-promoted to Ring 0, so only Asiddha is
+        # legal there. Outside scope only Siddha Lopa is legal.
+        if addr not in self.written:
+            return False
+        if self.in_scope and addr < ASIDDHA_BASE:
+            return False
+        if not self.in_scope and addr >= ASIDDHA_BASE:
+            return False
+        indent = "        " if self.in_scope else "    "
+        self.body.append(f"{indent}{self.name(addr)} लोपः ।")
+        self.written.discard(addr)
+        self.context = None
+        return True
+
+    def open_scope(self):
+        assert not self.in_scope
+        self.body.append("    अधिकारः {")
+        self.in_scope = True
+
+    def close_scope(self):
+        assert self.in_scope
+        self.body.append("    }")
+        self.in_scope = False
+
+    def explicit_store(self, addr):
+        assert self.in_scope and addr >= ASIDDHA_BASE
+        self.body.append(f"        {self.name(addr)} स्थापयति ।")
+        self.written.add(addr)
+        self.context = addr
+
+    def inherited_store(self):
+        if not self.in_scope or self.context is None or self.context < ASIDDHA_BASE:
+            return False
+        self.body.append("        स्थापयति ।")
+        self.written.add(self.context)
+        return True
+
+    def sandhi_store_pair(self, addr):
+        assert self.in_scope and addr >= ASIDDHA_BASE
+        self.body.extend(
+            [
+                f"        {self.name(addr)} स्थापयति ।",
+                "        सन्धिः ।",
+                f"        {self.name(addr)} स्थापयति ।",
+            ]
         )
-        # Sanjnaa declarations go before tantra block
-        sanjnaa_lines = [l for l in self.lines if l.startswith("सञ्ज्ञा")]
-        body_lines    = [l for l in self.lines if not l.startswith("सञ्ज्ञा")]
+        self.written.add(addr)
+        self.context = addr
+
+    def source(self):
+        declarations = [
+            f"सञ्ज्ञा {self.name(addr)} = 0x{addr:02X} ।"
+            for addr in ADDRESSES
+        ]
+        assert not self.in_scope
         return "\n".join(
-            sanjnaa_lines
-            + ["तन्त्रशास्त्रम् {"]
-            + body_lines
-            + ["}"]
+            declarations
+            + ["", "तन्त्रशास्त्रम् {"]
+            + self.body
+            + ["}", ""]
         )
 
 
-def generate_program(rng: random.Random) -> str:
-    """
-    Generate one random valid PSL program. Returns the source string.
-    """
-    b = ProgramBuilder(rng)
+def generate_source(rng: random.Random):
+    b = SourceBuilder(rng)
 
-    # Optionally add a Sanjnaa declaration
-    if rng.random() < 0.4:
-        names = ["प्रथमः", "द्वितीयः", "तृतीयः"]
-        addrs = [0x60, 0x50]
-        b.add_sanjnaa(rng.choice(names), rng.choice(addrs))
+    # Establish at least one explicit top-level write.
+    b.explicit_write(rng.choice(ADDRESSES))
 
-    # Choose a generation strategy
-    strategy = rng.choice([
-        "plain_writes",
-        "write_lopa",
-        "anuvrtti",
-        "avrtti",
-        "sandhi",
-        "adhikara",
-        "mixed",
-    ])
+    # Additional top-level control operations.
+    for _ in range(rng.randint(0, 4)):
+        choices = ["write", "inherit"]
+        siddha_live = [a for a in b.written if a < ASIDDHA_BASE]
+        if siddha_live:
+            choices.append("lopa")
+        choice = rng.choice(choices)
+        if choice == "write":
+            b.explicit_write(rng.choice(ADDRESSES))
+        elif choice == "inherit":
+            b.inherited_write()
+        else:
+            b.explicit_lopa(rng.choice(siddha_live))
 
-    if strategy == "plain_writes":
-        for _ in range(rng.randint(1, 4)):
-            addr = rng.choice(SIDDHA_TARGETS + ASIDDHA_TARGETS)
-            b.add_write(addr)
+    # Optional privileged scope.
+    if rng.random() < 0.85:
+        b.open_scope()
+        for _ in range(rng.randint(1, 5)):
+            choices = ["store", "sandhi"]
+            if b.context is not None and b.context >= ASIDDHA_BASE:
+                choices.append("inherit_store")
+            asiddha_live = [a for a in b.written if a >= ASIDDHA_BASE]
+            if asiddha_live:
+                choices.append("lopa")
+            choice = rng.choice(choices)
+            if choice == "store":
+                b.explicit_store(rng.choice(ASIDDHA))
+            elif choice == "sandhi":
+                b.sandhi_store_pair(rng.choice(ASIDDHA))
+            elif choice == "inherit_store":
+                b.inherited_store()
+            else:
+                b.explicit_lopa(rng.choice(asiddha_live))
+        b.close_scope()
 
-    elif strategy == "write_lopa":
-        addr = rng.choice(SIDDHA_TARGETS + ASIDDHA_TARGETS)
-        b.add_write(addr)
-        b.add_lopa(addr)
-        # Optional: write again after lopa
-        if rng.random() < 0.5:
-            b.add_write(rng.choice(SIDDHA_TARGETS + ASIDDHA_TARGETS))
+    # Optional post-scope Ring-2 operations. Explicit write always restores
+    # context if a prior Lopa cleared it.
+    for _ in range(rng.randint(0, 3)):
+        choices = ["write"]
+        if b.context is not None:
+            choices.append("inherit")
+        siddha_live = [a for a in b.written if a < ASIDDHA_BASE]
+        if siddha_live:
+            choices.append("lopa")
+        choice = rng.choice(choices)
+        if choice == "write":
+            b.explicit_write(rng.choice(ADDRESSES))
+        elif choice == "inherit":
+            b.inherited_write()
+        else:
+            b.explicit_lopa(rng.choice(siddha_live))
 
-    elif strategy == "anuvrtti":
-        addr = rng.choice(SIDDHA_TARGETS + ASIDDHA_TARGETS)
-        b.add_write(addr)
-        for _ in range(rng.randint(1, 3)):
-            b.add_anuvrtti_write()
-
-    elif strategy == "avrtti":
-        addr = rng.choice(SIDDHA_TARGETS + ASIDDHA_TARGETS)
-        count = rng.randint(2, 5)
-        b.add_avrtti_write(addr, count)
-
-    elif strategy == "sandhi":
-        # Sandhi only valid on Asiddha targets (same target, write-class)
-        addr = rng.choice(ASIDDHA_TARGETS)
-        b.add_write(rng.choice(SIDDHA_TARGETS))   # standalone first
-        b.add_sandhi_pair(addr)
-
-    elif strategy == "adhikara":
-        # Ring-2 write, then Adhikara scope with Ring-0 store, then Ring-2 again
-        b.add_write(rng.choice(SIDDHA_TARGETS))
-        b.open_adhikara()
-        b.add_ring0_store(rng.choice(ASIDDHA_TARGETS))
-        b.close_adhikara()
-        b.add_write(rng.choice(SIDDHA_TARGETS))
-
-    elif strategy == "mixed":
-        # Combine 2-3 strategies
-        addr1 = rng.choice(SIDDHA_TARGETS + ASIDDHA_TARGETS)
-        b.add_write(addr1)
-        if rng.random() < 0.4:
-            b.add_anuvrtti_write()
-        if rng.random() < 0.4 and b.written:
-            b.add_lopa(rng.choice(list(b.written)) if b.written else addr1)
-        if rng.random() < 0.3:
-            addr2 = rng.choice(ASIDDHA_TARGETS)
-            b.add_sandhi_pair(addr2)
-
-    return b.build()
+    return b.source()
 
 
-# ---------------------------------------------------------------------------
-# Legacy emission path
-# ---------------------------------------------------------------------------
+def check_one(src: str):
+    c1 = PaninianFormalCompiler()
+    c2 = PaninianFormalCompiler()
 
-def legacy_emit(compiler_mod, src: str):
-    """
-    Emit words via the legacy AST path (parse -> emit_words).
-    Skips Sandhi sentinels and Adhikara open/close nodes.
-    Returns list of 32-bit words.
-    """
-    C   = compiler_mod.PaninianFormalCompiler
-    ASTNode = compiler_mod.ASTNode
-    c   = C()
-    c._parse_sanjnaa(src)
-
-    legacy_nodes = []
-    for raw_line in src.splitlines():
-        stmt = raw_line.split('#', 1)[0].strip()
-        if (not stmt
-                or stmt == '{'
-                or stmt == '}'
-                or stmt.startswith(c.TANTRA_KEYWORD)
-                or stmt.startswith(c.SANJNAA_KEYWORD)
-                or stmt.startswith(c.ADHIKARA_KEYWORD)
-                or stmt == c.SANDHI_KEYWORD
-                or stmt == c.SANDHI_KEYWORD + " ।"):
-            continue
-        tokens = c.lex(stmt)
-        if not tokens:
-            continue
-        ast = c.parse(tokens)
-        for statement in ast.children:
-            # Skip Sandhi and Adhikara AST nodes -- legacy path doesn't handle them
-            if any(n.type in ("SANDHI_NODE", "ADHIKARA_NODE")
-                   for n in statement.children):
-                continue
-            if statement.children:
-                legacy_nodes.append(statement)
-
-    root = ASTNode("SUTRA_STREAM", children=legacy_nodes)
-    return c.emit_words(root)
-
-
-# ---------------------------------------------------------------------------
-# Differential check
-# ---------------------------------------------------------------------------
-
-def check_program(compiler_mod, src: str, prog_id: int, verbose: bool):
-    """
-    Run one program through both paths and check all four properties.
-    Returns (passed: bool, failures: list[str])
-    """
-    C               = compiler_mod.PaninianFormalCompiler
-    ParibhashaError = compiler_mod.ParibhashaError
-    SandhiError     = compiler_mod.SandhiError
+    words1 = c1.compile_source(src)
+    words2 = c2.compile_source(src)
 
     failures = []
 
-    # IR path
-    try:
-        c_ir  = C()
-        ir_words = c_ir.compile_source(src, enforce_paribhasha=True)
-    except (ParibhashaError, SandhiError) as e:
-        failures.append(f"IR path rejected valid program: {e}")
-        return False, failures
-    except Exception as e:
-        failures.append(f"IR path crash: {type(e).__name__}: {e}")
-        return False, failures
+    if words1 != words2:
+        failures.append("D1 compiler output differs across fresh instances")
 
-    # Legacy path -- only for programs without Sandhi or Adhikara
-    # (legacy emit_words doesn't handle those constructs)
-    has_sandhi   = c.SANDHI_KEYWORD   in src if (c := C()) else False
-    has_adhikara = C().ADHIKARA_KEYWORD in src
+    if not reference_validate(words1):
+        failures.append("D2 independent numeric validator rejected compiler output")
 
-    if not has_sandhi and not has_adhikara:
-        try:
-            legacy_words = legacy_emit(compiler_mod, src)
-        except Exception as e:
-            failures.append(f"Legacy path crash: {type(e).__name__}: {e}")
-            return False, failures
+    ir = c1._last_ir
+    lowered = [n.to_word() for n in ir]
+    if lowered != words1:
+        failures.append("D3 IR node lowering differs from emitted word stream")
 
-        # D1: byte identity
-        if ir_words != legacy_words:
-            failures.append(
-                f"D1 FAIL: IR {[hex(w) for w in ir_words]} "
-                f"!= legacy {[hex(w) for w in legacy_words]}"
-            )
+    if not all(isinstance(w, int) and 0 <= w <= 0xFFFFFFFF for w in words1):
+        failures.append("D4 emitted value outside 32-bit ABI range")
 
-        # D3: word count identity
-        if len(ir_words) != len(legacy_words):
-            failures.append(
-                f"D3 FAIL: IR count {len(ir_words)} != legacy {len(legacy_words)}"
-            )
-
-    # D2: constraint coverage (every non-sentinel node carries P1-ok..P4-ok)
-    # Re-run to get IR list with constraints populated
-    c2 = C()
-    c2._parse_sanjnaa(src)
-    ir_list = []
-    prev_target    = 0x00
-    adhikara_depth = 0
-    OPEN  = C.OPCODE_ADHIKARA_OPEN
-    CLOSE = C.OPCODE_ADHIKARA_CLOSE
-
-    for line_number, raw_line in enumerate(src.splitlines(), 1):
-        stmt = raw_line.split('#', 1)[0].strip()
-        if (not stmt or stmt == '{' or stmt.startswith(c2.TANTRA_KEYWORD)
-                or stmt.startswith(c2.SANJNAA_KEYWORD)):
-            continue
-        if stmt == '}':
-            if adhikara_depth > 0:
-                from importlib.util import spec_from_file_location, module_from_spec
-                ir_list.append(compiler_mod.IRNode(
-                    ring=0, comp=0, opcode=CLOSE, target=0x00,
-                    cond=0, flags=0x0F, source_line=line_number,
-                    source_text=stmt, constraints=["ADHIKARA-close"], region=None,
-                ))
-                adhikara_depth -= 1
-            continue
-        ast = c2.parse(c2.lex(stmt))
-        new_nodes = c2._build_ir_node(ast, line_number, stmt,
-                                      prev_target=prev_target,
-                                      adhikara_depth=adhikara_depth)
-        for node in new_nodes:
-            if node.opcode == OPEN:
-                adhikara_depth += 1
-            elif node.comp != c2.COMP_ANUVRTTI and node.target is not None:
-                prev_target = node.target
-        ir_list.extend(new_nodes)
-
-    c2.sandhi_pass(ir_list)
-    c2.validate_ir(ir_list)
-
-    SENTINEL_OPCODES = {0xFF, OPEN, CLOSE}
-    for node in ir_list:
-        if node.opcode in SENTINEL_OPCODES:
-            continue
-        for rule in ("P1-ok", "P2-ok", "P3-ok", "P4-ok"):
-            if rule not in node.constraints:
-                failures.append(
-                    f"D2 FAIL: node at line {node.source_line} "
-                    f"missing {rule} (constraints={node.constraints})"
-                )
-
-    # D4: L1 determinism -- to_word() is stable
-    for node in ir_list:
-        if node.opcode in SENTINEL_OPCODES:
-            continue
-        w1 = node.to_word()
-        w2 = node.to_word()
-        if w1 != w2:
-            failures.append(
-                f"D4 FAIL: to_word() non-deterministic at line {node.source_line}: "
-                f"0x{w1:08X} != 0x{w2:08X}"
-            )
-
-    passed = len(failures) == 0
-    if verbose and not passed:
-        print(f"\n[Program {prog_id}]")
-        print(src)
-        for f in failures:
-            print(f"  {f}")
-
-    return passed, failures
+    return failures, words1
 
 
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
+def fixed_negative_reference_cases():
+    return {
+        "anuvrtti_without_context": [0x210500F0],
+        "close_at_zero": [0x00BB00F0],
+        "ring0_siddha_scoped": [0x00AA00F0, 0x000530F0, 0x00BB00F0],
+        "store_outside_scope": [0x00CC60F0],
+        "ring2_store_in_scope": [0x00AA00F0, 0x20CC60F0, 0x00BB00F0],
+        "asiddha_lopa_unwritten": [0x00AA00F0, 0x000060F0, 0x00BB00F0],
+        "double_lopa": [0x200530F0, 0x200030F0, 0x200030F0],
+        "post_lopa_anuvrtti": [0x200530F0, 0x200030F0, 0x210500F0],
+        "unclosed_scope": [0x00AA00F0],
+    }
+
 
 def main():
-    parser = argparse.ArgumentParser(description="PVM Differential Test Suite")
-    parser.add_argument("--count",   type=int, default=5000,
-                        help="Number of programs to generate (default 5000)")
-    parser.add_argument("--seed",    type=int, default=42,
-                        help="Random seed (default 42)")
-    parser.add_argument("--verbose", action="store_true",
-                        help="Print failing programs")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--count", type=int, default=5000)
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
 
-    print("=" * 60)
-    print(f"PVM Differential Test Suite")
-    print(f"Programs: {args.count}   Seed: {args.seed}")
-    print("=" * 60)
-
-    mod = load_compiler()
     rng = random.Random(args.seed)
+    failures = []
+    distinct_streams = set()
+    distinct_words = set()
 
-    passed_count  = 0
-    failed_count  = 0
-    error_count   = 0
-    all_failures  = []
-
-    strategies    = {}
-    d_counters    = {"D1": 0, "D2": 0, "D3": 0, "D4": 0}
-
-    for i in range(1, args.count + 1):
-        src = generate_program(rng)
-
-        # Detect strategy from source content for stats
-        if "सन्धिः" in src:
-            strat = "sandhi"
-        elif "अधिकारः" in src:
-            strat = "adhikara"
-        elif "आवृत्तिः" in src:
-            strat = "avrtti"
-        elif "लोपः" in src:
-            strat = "write_lopa"
-        else:
-            strat = "plain"
-        strategies[strat] = strategies.get(strat, 0) + 1
-
+    for i in range(args.count):
+        src = generate_source(rng)
         try:
-            ok, failures = check_program(mod, src, i, args.verbose)
-        except Exception as e:
-            error_count += 1
-            all_failures.append((i, src, [f"EXCEPTION: {type(e).__name__}: {e}"]))
-            continue
+            errs, words = check_one(src)
+        except Exception as exc:
+            errs = [f"EXCEPTION {type(exc).__name__}: {exc}"]
+            words = []
 
-        if ok:
-            passed_count += 1
-        else:
-            failed_count += 1
-            all_failures.append((i, src, failures))
-            for f in failures:
-                for d in ("D1", "D2", "D3", "D4"):
-                    if f.startswith(d):
-                        d_counters[d] += 1
+        distinct_streams.add(tuple(words))
+        distinct_words.update(words)
 
-        if i % 500 == 0:
-            print(f"  Progress: {i}/{args.count} "
-                  f"passed={passed_count} failed={failed_count} "
-                  f"errors={error_count}")
+        if errs:
+            failures.append((i, src, errs))
+            if args.verbose:
+                print(f"\n--- failing generated program {i} ---")
+                print(src)
+                for err in errs:
+                    print(" ", err)
 
-    print()
-    print("=" * 60)
-    print("RESULTS")
-    print("=" * 60)
-    print(f"  Total programs:  {args.count}")
-    print(f"  Passed:          {passed_count}")
-    print(f"  Failed:          {failed_count}")
-    print(f"  Errors:          {error_count}")
-    print()
-    print("  Property breakdown (failures):")
-    for d, label in [
-        ("D1", "Byte identity (IR == legacy)"),
-        ("D2", "Constraint coverage (P1-ok..P4-ok)"),
-        ("D3", "Word count identity"),
-        ("D4", "L1 determinism (to_word stable)"),
-    ]:
-        print(f"    {d}: {d_counters[d]} failures  -- {label}")
-    print()
-    print("  Strategy distribution:")
-    for strat, cnt in sorted(strategies.items(), key=lambda x: -x[1]):
-        print(f"    {strat:15}: {cnt:5} programs ({100*cnt//args.count}%)")
+        if (i + 1) % 500 == 0:
+            print(
+                f"{i + 1}/{args.count}: failures={len(failures)} "
+                f"distinct_streams={len(distinct_streams)} "
+                f"distinct_words={len(distinct_words)}"
+            )
 
-    if all_failures and args.verbose:
-        print()
-        print("  First 3 failing programs:")
-        for pid, src, fails in all_failures[:3]:
-            print(f"\n  --- Program {pid} ---")
-            print(src[:400])
-            for f in fails:
-                print(f"    {f}")
+    negative_failures = []
+    for name, words in fixed_negative_reference_cases().items():
+        if reference_validate(words):
+            negative_failures.append(name)
 
-    total_pass = passed_count == args.count and error_count == 0
-    print()
-    status = "PASS" if total_pass else "FAIL"
-    print(f"[{status}] {passed_count}/{args.count} programs passed all four properties.")
+    print("\nCanonical PSL differential/falsification result")
+    print(f"  seed:              {args.seed}")
+    print(f"  generated:         {args.count}")
+    print(f"  failures:          {len(failures)}")
+    print(f"  distinct streams:  {len(distinct_streams)}")
+    print(f"  distinct words:    {len(distinct_words)}")
+    print(f"  negative failures: {len(negative_failures)}")
 
-    if not total_pass:
-        sys.exit(1)
+    if negative_failures:
+        print("  unexpectedly accepted negatives:", ", ".join(negative_failures))
+
+    if failures or negative_failures:
+        if failures and not args.verbose:
+            idx, src, errs = failures[0]
+            print(f"\nFirst failure: generated program {idx}")
+            print(src)
+            for err in errs:
+                print(" ", err)
+        raise SystemExit(1)
+
+    print(
+        f"[PASS] {args.count}/{args.count} generated programs satisfied D1-D4; "
+        f"{len(fixed_negative_reference_cases())} fixed invalid streams rejected."
+    )
 
 
 if __name__ == "__main__":

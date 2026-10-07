@@ -1,5 +1,43 @@
 # Pāṇinian Systems Language (PSL) — Project Status
 
+> ## Verification repair status — 2026-10-07
+>
+> The Sprint 1–15 material below is retained as a **historical development record**.
+> Its historical `PASS` labels describe the tests/checks used at the time; they
+> must not be read as current mathematical-proof status.
+>
+> The October 2026 verification audit found that the historical
+> `compile_sound_statement` development had not actually been exercised by a
+> real Lake build. Once CI typechecked `PSL.Semantics`, the old proof failed and
+> also relied on the project axiom `p2_runtime_correctness`.
+>
+> The repair branch now:
+>
+> - pins Lean 4.34.1 and runs a real `lake build` in CI;
+> - removes `p2_runtime_correctness` and the old unverified proof path;
+> - defines a canonical control state for live writes, Anuvṛtti context, and
+>   Adhikāra scope;
+> - makes Lopa consume live-written state and clear inheritance context;
+> - preserves Ring-2 WRITE-to-Asiddha as legal;
+> - requires Store and Asiddha-Lopa to have both Adhikāra scope and Ring 0;
+> - proves, without a PSL project axiom, `validateWords_execution`,
+>   `validated_ir_executes`, and `valid_program_executes`;
+> - runs Python semantic-contract tests for the corresponding compiler rules;
+> - audits principal theorem dependencies for `sorryAx` and the retired PSL axiom;\n> - cross-checks 65 Python-compiler word streams (8 checked-in + 57 generated) in Lean, covering 22 distinct ABI words;\n> - requires fixed adversarial ABI streams to be rejected independently by Lean;\n> - preserves contradictory pre-repair programs/specs under historical paths while active examples follow one canonical contract.
+>
+> **Still open:** universal Python source/compiler → Lean correspondence (the current 65-stream bridge is finite conformance evidence),
+> Āvṛtti/conditional/Sandhi formal semantics, one canonical RV32 refinement,
+> and physical-hardware evidence.
+>
+> Therefore the historical statement “PSL has a CompCert-equivalent
+> `compile_correct` proof” is **withdrawn**. The current proved result is a
+> narrower validator-to-abstract-execution forward simulation.
+>
+> See `docs/VERIFICATION_STATUS.md` and `docs/SEMANTIC_GAPS.md` for the
+> current evidence boundary.
+
+---
+
 **Last updated:** 2026-05-24  
 **Current sprint:** 15 (complete) — compile_sound_statement proof closed  
 **Status:** 15 sprints proven. 13 firmware sprints on freestanding RV32 QEMU (153 checks). Sprint 14–15: verified compilation chain (53 checks, 5 phases + Lean proof). Differential testing complete (5000/5000). Three real-world verticals complete (Sprints 11–13). Lean 4 formal spec: compile_sound proved (zero sorrys, one axiom). Paper updated: 12 pages, Sprints 14–15 added, all citations and tables clean, zero overfull hboxes. programs/ folder consolidates all 12 .pvm files. Stale scripts and empty dirs removed.

@@ -335,8 +335,7 @@ class PaninianFormalCompiler:
     # Sprint 8: Prakriya -- AST -> IRNode
     # ------------------------------------------------------------------
 
-    def _build_ir_node(self, ast, source_line, source_text, prev_target=None,
-                       adhikara_depth=0):
+    def _build_ir_node(self, ast, source_line, source_text, adhikara_depth=0):
         """
         Convert a single-statement AST into one or more IRNodes.
         adhikara_depth: current scope nesting level at this line.
@@ -433,92 +432,150 @@ class PaninianFormalCompiler:
 
     def validate_ir(self, ir_list):
         """
-        Run all Paribhasha checks (P1-P4b) over the complete IR list.
-        Mutates each IRNode's .constraints list.
-        Raises ParibhashaError on the first violation.
-        """
-        written_targets   = set()
-        adhikara_depth    = 0
-        first_real_seen   = False
+        Validate the canonical PSL semantic contract.
 
-        for i, node in enumerate(ir_list):
-            # Scope sentinels: track depth, skip P1-P4
+        State tracked by this pass:
+          * written_targets: targets with a live write
+          * adhikara_depth: lexical privilege scope depth
+          * context_target: target available to Anuvrtti
+
+        Lopa is a structural boundary: after a successful Lopa, context_target
+        is cleared. Therefore an immediately following Anuvrtti is rejected at
+        compile time rather than relying on firmware-specific behaviour.
+        """
+        written_targets = set()
+        adhikara_depth = 0
+        context_target = None
+
+        for node in ir_list:
             if node.opcode == self.OPCODE_ADHIKARA_OPEN:
                 adhikara_depth += 1
                 node.constraints.append("ADHIKARA-open")
                 continue
+
             if node.opcode == self.OPCODE_ADHIKARA_CLOSE:
-                adhikara_depth = max(0, adhikara_depth - 1)
+                if adhikara_depth == 0:
+                    raise ParibhashaError(
+                        "P4", "Adhikara-close-without-open",
+                        node.source_line, node.source_text,
+                        "Adhikara close encountered with no active scope"
+                    )
+                adhikara_depth -= 1
                 node.constraints.append("ADHIKARA-close")
                 continue
 
-            # P1: Anuvrtti-at-start
-            if node.comp == self.COMP_ANUVRTTI and not first_real_seen:
-                raise ParibhashaError(
-                    "P1", "Anuvrtti-at-start",
-                    node.source_line, node.source_text,
-                    "Compressed instruction (no Karaka) is the first statement "
-                    "-- there is no prior context to inherit"
-                )
-            node.constraints.append("P1-ok")
-            first_real_seen = True
+            # Resolve the semantic target used by legality checks.  The ABI
+            # still encodes TARGET=0 for Anuvrtti; this value exists only in
+            # the compiler's validation state.
+            if node.comp == self.COMP_ANUVRTTI:
+                if context_target is None:
+                    raise ParibhashaError(
+                        "P1", "Anuvrtti-without-context",
+                        node.source_line, node.source_text,
+                        "Compressed instruction has no live target to inherit; "
+                        "program start and Lopa boundaries clear inheritance context"
+                    )
+                effective_target = context_target
+            else:
+                effective_target = node.target
 
-            # P2: Lopa-on-unwritten
-            if node.opcode == 0x00 and node.target is not None:
-                if node.target not in written_targets:
+            node.constraints.append("P1-ok")
+
+            # P2: every Lopa, explicit or inherited, must erase live state.
+            if node.opcode == self.OPCODE_LOPA:
+                if effective_target is None or effective_target not in written_targets:
                     raise ParibhashaError(
                         "P2", "Lopa-on-unwritten",
                         node.source_line, node.source_text,
-                        "Lopa on target 0x%02X which has not been written "
+                        "Lopa targets 0x%02X which has no live prior write "
                         "(written so far: %s)" % (
-                            node.target,
+                            effective_target if effective_target is not None else 0,
                             sorted("0x%02X" % t for t in written_targets) or ["none"]
                         )
                     )
             node.constraints.append("P2-ok")
 
-            # P3: Vrddhi-on-Siddha (explicit Ring-0 on Siddha target)
-            if node.ring == 0x00 and node.target is not None:
-                if node.target < self.ASIDDHA_BASE:
+            # P3: privileged instructions may only resolve to Asiddha targets.
+            # Unlike the historical implementation, this check also covers an
+            # inherited target because its effective address is now known here.
+            if node.ring == 0x00 and effective_target is not None:
+                if effective_target < self.ASIDDHA_BASE:
                     raise ParibhashaError(
                         "P3", "Vrddhi-on-Siddha",
                         node.source_line, node.source_text,
-                        "Ring 0 (Vrddhi) on Siddha target 0x%02X "
-                        "(Siddha region < 0x%02X); "
-                        "Vrddhi only valid for Asiddha devices" % (
-                            node.target, self.ASIDDHA_BASE
+                        "Ring 0 (Vrddhi) resolves to Siddha target 0x%02X "
+                        "(Siddha region < 0x%02X)" % (
+                            effective_target, self.ASIDDHA_BASE
                         )
                     )
             node.constraints.append("P3-ok")
 
-            # P4: Ring0-outside-scope (Sprint 10)
+            # P4: every Ring-0 instruction must be lexically scoped.
             if node.ring == 0x00 and adhikara_depth == 0:
                 raise ParibhashaError(
                     "P4", "Ring0-outside-scope",
                     node.source_line, node.source_text,
-                    "Ring 0 instruction outside an Adhikara scope block; "
-                    "use 'adhikarah { ... }' to declare a privileged scope"
+                    "Ring 0 instruction outside an Adhikara scope"
                 )
-            # P4b: Asiddha-outside-scope (Sprint 13)
-            # Store or Lopa on Asiddha (>= 0x50) outside Adhikara is illegal.
-            # Asiddha registers require Ring-0 privilege which requires Adhikara.
-            if (adhikara_depth == 0
-                    and node.opcode in (self.OPCODE_STORE, self.OPCODE_LOPA)
-                    and node.target is not None
-                    and node.target >= self.ASIDDHA_BASE):
-                raise ParibhashaError(
-                    "P4", "Asiddha-outside-scope",
-                    node.source_line, node.source_text,
-                    "Store/Lopa on Asiddha target 0x%02X outside an Adhikara scope; "
-                    "Asiddha registers require Ring-0 privilege (Adhikara block)"
-                    % node.target
-                )
+
+            # Store is PSL's privileged shadow-write operation and therefore
+            # always requires an Adhikara scope.  Lopa requires privilege only
+            # when its resolved target is Asiddha.
+            if node.opcode == self.OPCODE_STORE:
+                if adhikara_depth == 0:
+                    raise ParibhashaError(
+                        "P4", "Store-outside-scope",
+                        node.source_line, node.source_text,
+                        "Store is a privileged operation and requires Adhikara"
+                    )
+                if node.ring != 0x00:
+                    raise ParibhashaError(
+                        "P4", "Store-without-Ring0",
+                        node.source_line, node.source_text,
+                        "Store inside Adhikara must carry Ring 0"
+                    )
+
+            if (node.opcode == self.OPCODE_LOPA
+                    and effective_target is not None
+                    and effective_target >= self.ASIDDHA_BASE):
+                if adhikara_depth == 0:
+                    raise ParibhashaError(
+                        "P4", "Asiddha-lopa-outside-scope",
+                        node.source_line, node.source_text,
+                        "Lopa on an Asiddha target requires Adhikara"
+                    )
+                if node.ring != 0x00:
+                    raise ParibhashaError(
+                        "P4", "Asiddha-lopa-without-Ring0",
+                        node.source_line, node.source_text,
+                        "Lopa on an Asiddha target must carry Ring 0"
+                    )
+
             node.constraints.append("P4-ok")
 
-            if (node.opcode in (0x05, 0xCC)
-                    and node.comp != self.COMP_ANUVRTTI
-                    and node.target is not None):
-                written_targets.add(node.target)
+            # State transition for the validator.  Inherited writes/stores act
+            # on the resolved target just like explicit ones.
+            if (node.opcode in (0x05, self.OPCODE_STORE)
+                    and effective_target is not None):
+                written_targets.add(effective_target)
+            elif node.opcode == self.OPCODE_LOPA and effective_target is not None:
+                written_targets.discard(effective_target)
+
+            # Explicit statements establish inheritance context.  Lopa,
+            # explicit or inherited, is a boundary and clears it.
+            if node.opcode == self.OPCODE_LOPA:
+                context_target = None
+            elif node.comp != self.COMP_ANUVRTTI and node.target is not None:
+                context_target = node.target
+
+        if adhikara_depth != 0:
+            raise ParibhashaError(
+                "P4", "Unclosed-Adhikara",
+                ir_list[-1].source_line if ir_list else 0,
+                ir_list[-1].source_text if ir_list else "<EOF>",
+                "Compilation ended with %d unclosed Adhikara scope(s)"
+                % adhikara_depth
+            )
 
     # ------------------------------------------------------------------
     # Sprint 8: Lowering invariants
@@ -570,12 +627,25 @@ class PaninianFormalCompiler:
         """
         return [node.to_word() for node in ir_list]
 
+    def get_last_ir(self):
+        """
+        Return an immutable snapshot of the final validated IR from the most
+        recent successful compilation.
+
+        This is the supported inspection boundary for conformance tooling.
+        Callers must not depend on the compiler's private _last_ir storage.
+        """
+        if not hasattr(self, "_last_ir"):
+            raise RuntimeError(
+                "No final IR is available; compile_source() must succeed first"
+            )
+        return tuple(self._last_ir)
+
     def print_ir(self, source_or_ir, label="Prakriya IR"):
         """Print the Prakriya IR. Accepts source string or IR list."""
         if isinstance(source_or_ir, str):
             self._parse_sanjnaa(source_or_ir)
             ir_list = []
-            prev_target    = 0x00
             adhikara_depth = 0
             for line_number, raw_line in enumerate(source_or_ir.splitlines(), 1):
                 statement = raw_line.split("#", 1)[0].strip()
@@ -597,13 +667,11 @@ class PaninianFormalCompiler:
                 stmt_ast  = self.parse(self.lex(statement))
                 new_nodes = self._build_ir_node(
                     stmt_ast, line_number, statement,
-                    prev_target=prev_target, adhikara_depth=adhikara_depth
+                    adhikara_depth=adhikara_depth
                 )
                 for node in new_nodes:
                     if node.opcode == self.OPCODE_ADHIKARA_OPEN:
                         adhikara_depth += 1
-                    elif node.comp != self.COMP_ANUVRTTI and node.target is not None:
-                        prev_target = node.target
                 ir_list.extend(new_nodes)
             ir_list = self.sandhi_pass(ir_list)
         else:
@@ -632,7 +700,6 @@ class PaninianFormalCompiler:
         self._parse_sanjnaa(code)
 
         ir_list        = []
-        prev_target    = 0x00
         adhikara_depth = 0
 
         for line_number, raw_line in enumerate(code.splitlines(), 1):
@@ -658,7 +725,7 @@ class PaninianFormalCompiler:
             stmt_ast  = self.parse(self.lex(statement))
             new_nodes = self._build_ir_node(
                 stmt_ast, line_number, statement,
-                prev_target=prev_target, adhikara_depth=adhikara_depth
+                adhikara_depth=adhikara_depth
             )
 
             if not new_nodes:
@@ -670,8 +737,6 @@ class PaninianFormalCompiler:
             for node in new_nodes:
                 if node.opcode == self.OPCODE_ADHIKARA_OPEN:
                     adhikara_depth += 1
-                elif node.comp != self.COMP_ANUVRTTI and node.target is not None:
-                    prev_target = node.target
 
             ir_list.extend(new_nodes)
 
@@ -685,14 +750,9 @@ class PaninianFormalCompiler:
         if print_ir:
             self.print_ir(ir_list)
 
-        # Expose the final IR for external inspection (Sprint 14 verified chain).
-        # The list is stored after all passes (Sandhi, Paribhasha, L1/L2 checks)
-        # so it reflects exactly what will be lowered.
-        self._last_ir = ir_list
-
-        # Expose the final IR for external inspection (Sprint 14 verified chain).
-        # Stored after all passes so it reflects exactly what will be lowered.
-        self._last_ir = ir_list
+        # Preserve the final validated IR for the supported get_last_ir()
+        # inspection boundary used by conformance tooling.
+        self._last_ir = list(ir_list)
 
         return self.emit_from_ir(ir_list)
 

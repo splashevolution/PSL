@@ -1,45 +1,27 @@
-# SPRINT 9: Sandhi -- Instruction Fusion
+# Canonical Sandhi example — verification-repair semantics
 #
-# Sandhi (Sanskrit: "junction", "combination") -- when two sounds meet at a
-# word boundary they fuse according to phonological rules into a single surface
-# form. The fusion is governed by explicit compatibility rules. Not all
-# combinations are valid; only those satisfying all rules produce a fused form.
-#
-# Here: when two instructions meet in the stream and are declared adjacent by
-# the Sandhi directive, they fuse into an atomic execution pair if all five
-# compatibility rules are satisfied. The first instruction carries FLAGS=0xE
-# (SANDHI-FIRST) in its ABI word. The firmware executes the pair atomically.
-#
-# Sandhi compatibility rules:
-#   S1: Both must be write-class (0x05 Write or 0xCC Store)
-#   S2: Both must target the same device address
-#   S3: First must be explicit (not Anuvrtti-compressed)
-#   S4: Both must be in the same ring level
-#   S5: No prior Lopa on the shared target
-#
-# Program structure:
-#   1. Write to Vak (Siddha, 0x30) -- standalone, no fusion
-#   2. Write to Yantra (Asiddha, 0x60) -- first of Sandhi pair
-#      [सन्धिः -- fusion directive]
-#   3. Store to Yantra (Asiddha, 0x60) -- second of Sandhi pair (atomic with 2)
+# Sandhi marks a compatible adjacent pair. Store is a privileged operation in
+# canonical PSL, so the pair is explicitly inside Adhikara and both members are
+# Ring 0 Stores to the same Asiddha target.
 #
 # Expected ABI words:
-#   0x200530F0  -- Write Vak (standalone, FLAGS=0xF)
-#   0x200560E0  -- Write Yantra (SANDHI-FIRST, FLAGS=0xE)
-#   0x20CC60F0  -- Store Yantra (SANDHI-PAIR second, FLAGS=0xF)
+#   0x200530F0  Write Vak (standalone Ring 2)
+#   0x00AA00F0  Adhikara OPEN
+#   0x00CC60E0  Store Yantra (SANDHI-FIRST)
+#   0x00CC60F0  Store Yantra (pair second)
+#   0x00BB00F0  Adhikara CLOSE
 #
-# Expected UART:
-#   standalone_writes=0x01  sandhi_fusions=0x01
-#   VAK_bus=0xFF  YANTRA_write=0xFF  YANTRA_store=0xFF
+# This file establishes compiler-level pair formation only. Hardware/runtime
+# atomicity remains an explicit open refinement obligation.
 
 सञ्ज्ञा यन्त्र = 0x60 ।
 
 तन्त्रशास्त्रम् {
-    # Standalone write to Vak -- not fused
     वाचम् लिखति ।
 
-    # Sandhi pair: Write + Store to Yantra (same target, same ring, both write-class)
-    यन्त्र लिखति ।
-    सन्धिः ।
-    यन्त्र स्थापयति ।
+    अधिकारः {
+        यन्त्र स्थापयति ।
+        सन्धिः ।
+        यन्त्र स्थापयति ।
+    }
 }

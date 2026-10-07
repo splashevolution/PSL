@@ -1,0 +1,68 @@
+name: Lean verification
+
+on:
+  pull_request:
+    branches: ["main"]
+  push:
+    branches: ["repair/verification-contract"]
+  workflow_dispatch:
+
+jobs:
+  lean:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install elan and pinned Lean toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+          "$HOME/.elan/bin/lean" --version
+          "$HOME/.elan/bin/lake" --version
+
+      - name: Typecheck PSL Lean project
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PATH="$HOME/.elan/bin:$PATH"
+          cd lean
+          lake build
+
+      - name: Cross-check canonical Python compiler output in Lean
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PATH="$HOME/.elan/bin:$PATH"
+          python scripts/generate_lean_conformance.py lean/GeneratedConformance.lean
+          cd lean
+          lake env lean GeneratedConformance.lean
+
+      - name: Check adversarial Lean rejection cases
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PATH="$HOME/.elan/bin:$PATH"
+          cd lean
+          lake env lean NegativeConformance.lean
+
+      - name: Audit principal theorem dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PATH="$HOME/.elan/bin:$PATH"
+          cd lean
+          lake env lean Audit.lean | tee /tmp/psl-axioms.txt
+          if grep -q "sorryAx" /tmp/psl-axioms.txt; then
+            echo "ERROR: principal theorem depends on sorryAx"
+            exit 1
+          fi
+          if grep -q "p2_runtime_correctness" /tmp/psl-axioms.txt; then
+            echo "ERROR: retired PSL project axiom returned"
+            exit 1
+          fi
+          if grep -R -nE '^[[:space:]]*axiom[[:space:]]+p2_runtime_correctness\b' PSL; then
+            echo "ERROR: p2_runtime_correctness was reintroduced"
+            exit 1
+          fi
