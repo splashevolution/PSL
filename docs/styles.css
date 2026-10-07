@@ -131,6 +131,9 @@ h3 { margin: .7rem 0 .65rem; font-size: 1.25rem; font-weight: 650; letter-spacin
 .metric-number small { color: #596a6d; }
 .state-metric p { color: #526366; }
 .path-card > span, .path-card small { color: #53666a; }
+.domain-number { color: #9aa6a8; }
+.not-claim .card-kicker { color: #5d696c; }
+.hypothesis-card cite { color: #506b6e; }
 
 @media (max-width: 480px) {
   .hero { padding-top: 3.4rem; padding-bottom: 3.5rem; }
