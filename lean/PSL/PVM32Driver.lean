@@ -4,14 +4,14 @@ import PSL.Semantics
 namespace PSL
 
 /-
-  PVM32 is the first PSL driver contract, not the definition of PSL.
+  PVM32 is Realization 0: a compatibility instance beneath the current
+  semantic-continuity research direction.
 
   The existing Python compiler and 32-bit ABI remain the executable historical
-  implementation underneath this contract. This module gives the first formal
-  adapter from target-independent SemanticScript terms into that ABI.
+  implementation underneath this adapter. SemanticId values are not PVM
+  addresses; PVM32Bindings owns that target-specific association.
 
-  SemanticId values are not PVM addresses. A PVM32Bindings value owns that
-  target-specific association.
+  Capability acceptance in this module is not a realization proof.
 -/
 
 def pvm32Supports : Capability → Bool
@@ -29,7 +29,7 @@ def pvm32Driver : DriverContract :=
 example : pvm32Driver.acceptsScript statusScript = true := by
   native_decide
 
-/-- A deliberately weaker driver demonstrates capability-based rejection. -/
+/-- A deliberately weaker declaration demonstrates capability-based refusal. -/
 def writeOnlySupports : Capability → Bool
   | .write => true
   | _      => false
@@ -84,9 +84,12 @@ def pvm32Comp : ContextMode → Fin 16
   | .inherit  => fin16 1
 
 /--
-Lower one semantic term after the driver has accepted its required
-capabilities. Explicit terms require a driver binding. Inherited terms carry
-no target address in the ABI and rely on the already-defined PVM context rule.
+Lower one semantic term after the target has declared the required
+capabilities. Explicit terms require a target binding. Inherited terms carry
+no target address in the legacy ABI and rely on its existing context rule.
+
+This function demonstrates separation of semantic identity from target
+addressing. It does not establish behavioral refinement.
 -/
 def pvm32LowerTerm?
     (bindings : PVM32Bindings) (t : SemanticTerm) : Option ABIWord :=
@@ -139,28 +142,18 @@ def pvm32Words?
   | some words => some (words.map ABIWord.toNat)
 
 /--
-Reference binding for the cross-surface witness.
+Reference binding for the neutral status witness.
 
-The association SemanticId(1001) -> 0x20 exists here, in the PVM32 driver,
-rather than in the semantic identity or either source language.
+The association SemanticId(1001) -> 0x20 exists here, in the PVM32
+realization, rather than in semantic identity.
 -/
 def referencePVM32Bindings : PVM32Bindings :=
   { targetOf := fun id =>
       if id == statusIdentity then some (fin256 0x20) else none }
 
-example :
-    pvm32Words? referencePVM32Bindings englishStatusSurface.elaborate =
+theorem status_script_realizes_on_pvm32 :
+    pvm32Words? referencePVM32Bindings statusScript =
       some [0x200520F0] := by
   native_decide
-
-example :
-    pvm32Words? referencePVM32Bindings devanagariStatusSurface.elaborate =
-      some [0x200520F0] := by
-  native_decide
-
-theorem surface_choice_does_not_change_pvm32_realization :
-    pvm32Words? referencePVM32Bindings englishStatusSurface.elaborate =
-    pvm32Words? referencePVM32Bindings devanagariStatusSurface.elaborate := by
-  rfl
 
 end PSL

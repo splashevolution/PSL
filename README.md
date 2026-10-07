@@ -164,6 +164,7 @@ The project should become smaller if evidence does not support a claim.
 - [Threat model](docs/THREAT_MODEL.md)
 - [Evaluation protocol](docs/EVALUATION_PROTOCOL.md)
 - [Current semantic architecture](docs/SEMANTIC_ARCHITECTURE.md)
+- [Terminology audit](docs/TERMINOLOGY_AUDIT.md)
 - [Historical Pāṇinian origin](docs/historical/PANINIAN_ORIGIN.md)
 
 ## Running the current formal baseline

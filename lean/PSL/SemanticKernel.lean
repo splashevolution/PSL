@@ -5,9 +5,9 @@ namespace PSL
 /-
   PSL language-neutral semantic kernel.
 
-  The kernel deliberately contains no parser tokens, source-language keywords,
-  device addresses, ABI opcodes, or natural-language names. Surface forms and
-  hardware drivers are adapters around this layer.
+  This module contains no parser tokens, source-language vocabulary, device
+  addresses, or target opcodes. It is an implementation checkpoint beneath the
+  semantic-continuity research programme.
 
   A SemanticId denotes meaning. It is not a word and it is not an address.
 -/
@@ -16,7 +16,7 @@ structure SemanticId where
   value : Nat
   deriving Repr, BEq, DecidableEq
 
-/-- Stable semantic relationships inspired by Karaka roles. -/
+/-- Target-independent semantic relationships. -/
 inductive RelationKind where
   | source
   | destination
@@ -24,7 +24,7 @@ inductive RelationKind where
   | context
   deriving Repr, BEq, DecidableEq
 
-/-- Target-independent actions understood by the semantic script. -/
+/-- Target-independent actions understood by the current semantic script. -/
 inductive Action where
   | read
   | write
@@ -32,7 +32,7 @@ inductive Action where
   | consume
   deriving Repr, BEq, DecidableEq
 
-/-- Authority is semantic; a driver decides how to realize it physically. -/
+/-- Authority is semantic; a realization decides how to implement it. -/
 inductive Authority where
   | ordinary
   | privileged
@@ -51,7 +51,7 @@ structure Relation where
 
 /--
 A semantic term describes meaning before any ABI, ISA, address, register,
-runtime, or natural-language spelling has been chosen.
+runtime, protocol, or source-language spelling has been chosen.
 -/
 structure SemanticTerm where
   action      : Action
@@ -64,29 +64,7 @@ structure SemanticScript where
   terms : List SemanticTerm
   deriving Repr, BEq, DecidableEq
 
-/--
-A SurfaceForm is only a rendering/elaboration boundary. Its text and language
-do not participate in semantic equality.
--/
-structure SurfaceForm where
-  language : String
-  text     : String
-  meaning  : SemanticScript
-  deriving Repr
-
-def SurfaceForm.elaborate (s : SurfaceForm) : SemanticScript :=
-  s.meaning
-
-def semanticallyEquivalent (a b : SurfaceForm) : Prop :=
-  a.elaborate = b.elaborate
-
-theorem same_meaning_implies_surface_equivalence
-    (a b : SurfaceForm)
-    (h : a.meaning = b.meaning) :
-    semanticallyEquivalent a b := by
-  simpa [semanticallyEquivalent, SurfaceForm.elaborate] using h
-
--- Driver capability contract --------------------------------------------------
+-- Initial capability gate -----------------------------------------------------
 
 inductive Capability where
   | read
@@ -125,16 +103,19 @@ def DriverContract.acceptsScript
   s.terms.all d.acceptsTerm
 
 /-
-  The driver may choose a realization only after declaring that it supports
-  the semantic capabilities required by the script. This is intentionally
-  independent of any particular backend representation.
+  This boolean capability contract is intentionally only an early gate. It does
+  not prove that a target binding, representation, sequence, state transition,
+  unit, persistence property, or observable behavior realizes the intended
+  semantics. The semantic-continuity research line is intended to strengthen
+  this boundary with explicit realization evidence.
 -/
 
--- Cross-surface witness -------------------------------------------------------
+-- Minimal neutral witness ------------------------------------------------------
 
 /-
-  1001 is a semantic identity chosen solely for this witness. It is NOT the
-  historical PVM address 0x20 and must never be interpreted as one.
+  1001 is a semantic identity chosen solely for this implementation witness.
+  It is not the historical PVM address 0x20 and must never be interpreted as
+  one.
 -/
 def statusIdentity : SemanticId := ⟨1001⟩
 
@@ -146,19 +127,5 @@ def statusWrite : SemanticTerm :=
 
 def statusScript : SemanticScript :=
   { terms := [statusWrite] }
-
-def englishStatusSurface : SurfaceForm :=
-  { language := "en"
-  , text := "write status"
-  , meaning := statusScript }
-
-def devanagariStatusSurface : SurfaceForm :=
-  { language := "sa-Deva"
-  , text := "स्थितिः लिखति ।"
-  , meaning := statusScript }
-
-theorem english_and_devanagari_status_are_same_program :
-    semanticallyEquivalent englishStatusSurface devanagariStatusSurface := by
-  rfl
 
 end PSL

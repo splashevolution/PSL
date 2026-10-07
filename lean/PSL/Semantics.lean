@@ -2,14 +2,19 @@ import Std.Tactic
 
 /-
   PSL/Semantics.lean
-  Pāṇinian Systems Language — auditable formal core
+  Legacy PVM32 semantics — auditable formal core.
 
   This file intentionally separates:
     * executable definitions,
     * closed Lean theorems,
     * open compiler/refinement goals.
 
-  It does not claim source-to-RV32 compiler correctness.
+  Historical ABI identifiers such as OP_LOPA, Region.Siddha/Asiddha,
+  in_adhikara, sandhi_fused, and sanjnaaEquiv are frozen compatibility names
+  retained to preserve proof and execution lineage. New semantic-continuity
+  modules should use neutral terminology.
+
+  This file does not claim source-to-RV32 compiler correctness.
 -/
 
 -- §1 ABI ----------------------------------------------------------------------
@@ -37,7 +42,7 @@ def OP_CLOSE : Fin 256 := ⟨0xBB, by decide⟩
 
 def ASIDDHA_BASE : Nat := 0x50
 
--- §2 Prakriya IR --------------------------------------------------------------
+-- §2 Legacy PVM32 IR ----------------------------------------------------------
 
 inductive Region where
   | Siddha
@@ -98,7 +103,8 @@ theorem decode_known_word_roundtrip :
 /-
   Ring is an instruction attribute in the PSL ABI, not mutable global state.
   Runtime control state therefore tracks only the information that flows
-  between instructions: written targets, Anuvrtti context, and Adhikara depth.
+  between instructions: written targets, inherited target context, and
+  privilege-scope depth.
 -/
 
 structure ControlState where
@@ -130,13 +136,16 @@ def isExecutableOpcode (w : ABIWord) : Bool :=
 /-
   Canonical control transition.
 
-  This mirrors the repaired Python validator:
-    * Anuvrtti requires live context.
-    * Lopa requires a live write and clears inheritance context.
-    * Ring-0 may resolve only to Asiddha and only inside Adhikara.
-    * Store always requires Adhikara and Ring-0.
-    * Asiddha Lopa requires Adhikara and Ring-0.
+  This mirrors the repaired Python validator while using neutral descriptions:
+    * inherited targeting requires live context;
+    * consume/erase requires a live write and clears inherited context;
+    * Ring-0 may resolve only to the protected address region and only inside
+      an active privilege scope;
+    * Store always requires privilege scope and Ring-0;
+    * consume/erase in the protected region requires privilege scope and Ring-0;
     * Ring-2 Write may target either region; visibility is a memory-model issue.
+
+  Legacy identifiers in the code below are preserved for ABI compatibility.
 -/
 def controlStep (c : ControlState) (w : ABIWord) : Option ControlState :=
   if w.opcode = OP_OPEN then
@@ -229,7 +238,7 @@ def validateWords : List ABIWord → ControlState → Option ControlState
 def validateIR (ir : List IRNode) : Option ControlState :=
   validateWords (lowerAll ir) ControlState.initial
 
-/-- A valid PSL control program validates and closes every Adhikara scope. -/
+/-- A valid PSL control program validates and closes every privilege scope. -/
 def ValidProgram (ir : List IRNode) : Prop :=
   ∃ cFinal,
     validateIR ir = some cFinal ∧
@@ -387,7 +396,7 @@ theorem valid_program_executes
 
 /--
 A generated compiler IR certificate that evaluates to true therefore carries
-all the way to non-aborting abstract execution with closed Adhikara scope.
+all the way to non-aborting abstract execution with closed privilege scope.
 -/
 theorem certified_ir_executes
     (ir : List IRNode)
@@ -403,9 +412,9 @@ theorem certified_ir_executes
   Remaining proof boundaries:
 
   1. Python compiler -> Lean ValidProgram correspondence.
-  2. Avrtti repetition semantics.
-  3. Utsarga/Apavada conditional semantics.
-  4. Sandhi atomicity semantics.
+  2. Legacy repetition semantics.
+  3. Legacy conditional-precedence semantics.
+  4. Legacy fusion/atomicity semantics.
   5. Lean abstract machine -> canonical RV32 firmware refinement.
   6. QEMU -> physical-hardware evidence.
 
