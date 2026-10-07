@@ -1,118 +1,268 @@
 # Paninian Systems Language (PSL)
 
-**PSL is a research prototype for applying Pāṇinian structural concepts to a small systems language and embedded-firmware execution model.** It explores whether selected invalid states can be rejected structurally before execution and whether those compiler rules can be connected to an executable formal machine.
+> **Meaning should outlive syntax. Software intent should outlive hardware.**
 
-The repository contains a compiler, historical RV32/QEMU firmware experiments, differential tests, and a Lean 4 formal model. These layers provide different kinds of evidence and are deliberately kept separate.
+PSL is a research project exploring a **proof-relevant semantic script**: a program model in which human or machine-facing surfaces elaborate into a language-neutral semantic derivation, and target drivers independently realize that meaning under explicit capability constraints.
 
-## Research Question
+Pāṇini is important here for the architecture of derivation — naming, relations, contextual inheritance, authority, exceptions, composition, and rule applicability — **not because Sanskrit syntax is inherently superior to English syntax**.
 
-Can concepts inspired by Pāṇini's *Aṣṭādhyāyī* be expressed as useful compiler and machine invariants for embedded systems?
+PSL is not trying to replace C, Rust, Go, LLVM, MLIR, Lean, or natural language. The research question is whether a small semantic layer can preserve meaning across changing notation, software stacks, and hardware generations.
 
-Claims that PSL is generally leaner, faster, safer, or more deterministic than conventional systems remain **research hypotheses** until they are supported by controlled comparisons and stronger refinement proofs.
+## The Aim
 
-## Current Verification Status
+Today, source code usually binds together several concerns too early:
 
-The current repaired formal core is typechecked in CI with pinned **Lean 4.34.1**.
+- human vocabulary and syntax;
+- semantic intent;
+- memory and privilege assumptions;
+- compiler IR;
+- target architecture;
+- device-specific realization.
 
-What is currently established:
+PSL is testing a different separation:
 
-- the canonical PSL control state explicitly tracks live written targets, Anuvṛtti context, and Adhikāra scope depth;
-- **Lopa is a hard inheritance boundary**: successful Lopa consumes live-written state and clears inherited target context;
-- Ring-2 WRITE to an Asiddha address remains legal in the canonical control contract;
-- Store requires Adhikāra and Ring 0;
-- Asiddha Lopa requires Adhikāra and Ring 0;
-- malformed scope close, inherited instruction without live context, and Lopa of non-live state are rejected by the canonical validator;
-- Lean proves an **axiom-free forward simulation** from successful control validation to successful execution in the PSL abstract machine:
-  - `validateWords_execution`
-  - `validated_ir_executes`
-  - `valid_program_executes`
-- Python semantic-contract tests exercise the corresponding compiler boundary cases;\n- CI cross-checks the Python compiler's exact numeric output in Lean: the current generated corpus covers **65 accepted word streams** (8 checked-in programs + 57 deterministic generated variants) and **22 distinct ABI words**;\n- fixed adversarial word streams are independently required to evaluate to rejection in Lean.
-
-The retired project axiom `p2_runtime_correctness` is no longer part of the repaired formal model. CI audits the principal theorems for `sorryAx` and for reintroduction of that project axiom. The current dependency audit reports only Lean's standard `propext` axiom for the principal forward-simulation theorems.
-
-What is **not** yet established:
-
-- Python source compiler → Lean `ValidProgram` correspondence;
-- complete Āvṛtti execution semantics;
-- complete Utsarga/Apavāda conditional semantics;
-- a formal Sandhi atomicity model;
-- Lean abstract-machine → canonical RV32 firmware refinement;
-- QEMU → physical RISC-V hardware equivalence;
-- a CompCert-equivalent end-to-end compiler-correctness theorem.
-
-See [`docs/VERIFICATION_STATUS.md`](docs/VERIFICATION_STATUS.md) for the claim ledger and [`docs/SEMANTIC_GAPS.md`](docs/SEMANTIC_GAPS.md) for repaired and still-open semantic conflicts.
-
-> A passing QEMU test is executable evidence, not a mathematical proof. A Lean theorem about PSL's abstract machine is not automatically a theorem about RV32 firmware or physical hardware.
-
-## Canonical Semantic Decisions
-
-The repair work freezes three decisions before further feature development:
-
-1. **Ring is an instruction attribute**, not a mutable global privilege register in the formal machine.
-2. **Lopa ends inheritance context.** An Anuvṛtti immediately after Lopa is structurally invalid unless a new explicit target establishes context.
-3. **Ring-2 WRITE may address Asiddha.** Visibility and storage behavior belong to the memory/refinement model; WRITE is not rejected solely because the address is Asiddha.
-
-Historical sprint artifacts that contradict these rules are retained as historical evidence, not treated as the current canonical semantics.
-
-## Core Ideas
-
-PSL maps selected Pāṇinian concepts to machine/compiler abstractions:
-
-- **Kārakas** — data-flow roles such as source, destination, instrument, and context
-- **Anuvṛtti** — explicit context inheritance
-- **Āvṛtti** — structurally encoded bounded repetition
-- **Lopa** — structured erasure and context boundary
-- **Vṛddhi** — privileged role encoding
-- **Siddha / Asiddha** — visible/shadow address partition in the PSL model
-- **Adhikāra** — lexical privilege scope
-- **Paribhāṣā** — compiler legality predicates
-- **Sandhi** — declared instruction-pair fusion; formal atomicity is still open
-
-Similar concepts exist in conventional compiler, type-system, capability, privilege, and state-machine designs. PSL's contribution must therefore be demonstrated by the exact structural rules, formal results, and empirical comparisons—not by terminology alone.
-
-## Bytecode / ABI
-
-Every operation lowers to a fixed **32-bit, big-endian** instruction word:
-
-```
-31-28   27-24    23-16      15-08      07-00
-RING_ID | COMP | OPCODE | TARGET | FLAGS/COND
+```text
+          human / AI / graphical surfaces
+            English · Devanagari · future UI
+                       │
+                       ▼
+              semantic elaboration
+                       │
+                       ▼
+             PANINIAN SEMANTIC SCRIPT
+                       │
+         identity · relations · actions
+       context · authority · lifecycle
+             rules · derivation
+                       │
+                       ▼
+                    Lean
+             legality / proof boundary
+                       │
+                       ▼
+              verified semantic intent
+                       │
+           capability-declaring drivers
+              ┌────────┼────────┐
+              ▼        ▼        ▼
+            PVM32     CPU      future
+             RV32   LLVM/MLIR  FPGA/GPU/
+                               legacy I/O
 ```
 
-The fixed layout is intended to keep decoding predictable and inspectable.
+The surface may choose **how meaning is expressed to a human**.
 
-## Repository Layout
+The driver may choose **how meaning is realized on a machine**.
 
-- `src/utils/paninian_compiler.py` — canonical Python compiler implementation under repair
-- `lean/PSL/Semantics.lean` — current Lean abstract/control semantics
-- `lean/Audit.lean` — principal-theorem dependency audit
-- `tests/test_semantic_contract.py` — compiler semantic-contract regression tests\n- `tests/test_canonical_programs.py` — exact ABI checks for active example programs\n- `scripts/generate_lean_conformance.py` — deterministic Python-compiler → Lean finite conformance generator\n- `lean/NegativeConformance.lean` — adversarial word streams that must be rejected
-- `programs/` — PSL example programs; some are historical and may predate the repaired contract
-- `src/rv32/` — historical freestanding RV32/QEMU firmware experiments
-- `paper/` — historical research manuscript; claims must be reconciled with the current ledger
-- `evidence/` — captured sprint execution artifacts
-- `docs/VERIFICATION_STATUS.md` — authoritative claim ledger
-- `docs/SEMANTIC_GAPS.md` — semantic conflicts and their repair decisions
-- `STATUS.md` — sprint history plus current repair status
+Neither is allowed to silently change **what the program means**.
 
-## Running the Current Checks
+## Why Pāṇini?
+
+PSL treats selected Pāṇinian ideas as candidates for a computational derivation system rather than decorative terminology.
+
+| Pāṇinian concept | PSL research interpretation |
+|---|---|
+| **Sañjñā** | stable semantic identity, independent of spelling or hardware address |
+| **Kāraka** | semantic relationship: source, destination, instrument, context |
+| **Kriyā** | action / transformation |
+| **Anuvṛtti** | controlled propagation of live context |
+| **Adhikāra** | scoped authority governing subsequent derivations |
+| **Lopa** | semantic consumption and context termination |
+| **Utsarga / Apavāda** | default rule and specialized exception |
+| **Paribhāṣā** | meta-rules governing legal derivation |
+| **Sandhi** | legal composition under preserved invariants |
+| **Prakriyā** | inspectable derivation by which a program acquires meaning |
+
+Some of these concepts are implemented in the current prototype; others remain research obligations. A Sanskrit name alone is never considered a contribution.
+
+## The Stronger Research Hypothesis
+
+PSL is **not** claiming novelty for any of these individually:
+
+- multiple textual or graphical views of one program;
+- portable intermediate representations;
+- heterogeneous compiler backends;
+- verified compilation;
+- proof-carrying code;
+- stable semantic identifiers.
+
+Those areas already have substantial prior art.
+
+The hypothesis worth testing is narrower:
+
+> **Can one proof-relevant semantic derivation be independently elaborated from plural surfaces and independently realized by capability-declaring drivers, with machine-checkable evidence at both boundaries?**
+
+If the answer is no, PSL should narrow or abandon that claim.
+
+## What Exists Today
+
+PSL began as a small Pāṇinian-inspired embedded language and PVM32/RV32 experiment. That work is now being treated as **Driver 0**, not as the final definition of PSL.
+
+The current verified repair line establishes a canonical control model for:
+
+- live written state;
+- Anuvṛtti context;
+- Adhikāra scope;
+- privileged Store and Asiddha Lopa;
+- Lopa as both lifecycle consumption and an inheritance boundary.
+
+Lean proves a forward simulation from successful canonical validation to successful execution in the abstract machine. The current finite bridge also checks Python compiler output against Lean for **65 accepted word streams** and **22 distinct ABI words**.
+
+The semantic-script experiment adds a layer above that model:
+
+```text
+English:      write status
+Devanagari:   स्थितिः लिखति ।
+                    │
+                    ▼
+             same SemanticScript
+                    │
+               PVM32 binding
+                    │
+                    ▼
+              0x200520F0
+```
+
+The important separation is:
+
+```text
+SemanticId(1001)  ≠  "status"  ≠  स्थितिः  ≠  PVM address 0x20
+```
+
+Only the PVM32 driver owns the `SemanticId(1001) -> 0x20` realization binding.
+
+### Active research lines
+
+- **Verification repair:** [`repair/verification-contract`](https://github.com/splashevolution/paninian-systems-language/tree/repair/verification-contract)
+- **Semantic script kernel:** [`feature/semantic-script-kernel`](https://github.com/splashevolution/paninian-systems-language/tree/feature/semantic-script-kernel)
+- **Verification ledger:** [`docs/VERIFICATION_STATUS.md`](https://github.com/splashevolution/paninian-systems-language/blob/repair/verification-contract/docs/VERIFICATION_STATUS.md)
+- **Known semantic gaps:** [`docs/SEMANTIC_GAPS.md`](https://github.com/splashevolution/paninian-systems-language/blob/repair/verification-contract/docs/SEMANTIC_GAPS.md)
+- **Semantic architecture:** [`docs/SEMANTIC_ARCHITECTURE.md`](https://github.com/splashevolution/paninian-systems-language/blob/feature/semantic-script-kernel/docs/SEMANTIC_ARCHITECTURE.md)
+
+## What PSL Does **Not** Claim
+
+The project does **not** currently establish:
+
+- universal natural-language understanding;
+- universal source-to-hardware correctness;
+- complete Python-source-to-Lean compiler correctness;
+- GPU or FPGA portability;
+- Lean-to-RV32 refinement for the canonical runtime;
+- equivalence between QEMU and physical silicon;
+- general performance superiority over C, Rust, Go, LLVM, or MLIR;
+- that Pāṇinian structure is automatically better than conventional type or capability systems.
+
+Historical repository material predating the verification repair may contain stronger language. Treat the current verification ledger and Lean model as authoritative for proof claims.
+
+## The Legacy-Hardware Test
+
+One practical direction is intentionally unfashionable: **can software intent outlive the machine it was written for?**
+
+The planned experiment is to freeze an emulated legacy device behind a primitive protocol and require the same semantic script to run against both a modern realization and that old machine through independent drivers.
+
+```text
+                  same SemanticScript
+                    /          \
+                   /            \
+            modern driver    legacy driver
+                 │                │
+            modern target     old protocol
+                                  │
+                              QEMU device
+```
+
+The legacy machine should know nothing about PSL.
+
+If the target cannot satisfy the semantic contract, PSL must refuse the realization rather than silently invent compatibility.
+
+## Kill Criteria
+
+The universal-script hypothesis survives only if we can demonstrate all of the following without contaminating the semantic kernel with target-specific assumptions:
+
+1. two genuinely independent surfaces elaborate to equivalent semantic derivations;
+2. a second, fundamentally different driver realizes the same script;
+3. an incapable or dishonest driver is rejected;
+4. a legacy QEMU target and a modern target can share one semantic program;
+5. adding a new driver does not force hardware details into `SemanticScript`;
+6. proof obligations scale locally rather than requiring every driver to be rewritten.
+
+Failure is a useful research result. PSL should become smaller rather than preserve an attractive claim that the evidence cannot support.
+
+## Verification Philosophy
+
+PSL separates evidence types deliberately.
+
+A passing QEMU run is executable evidence.
+
+A passing compiler regression test is test evidence.
+
+A Lean theorem is a theorem about the model it states.
+
+None of those automatically proves the others.
+
+The intended long-term chain is:
+
+```text
+surface expression
+      ↓  elaboration evidence
+SemanticScript / Prakriyā
+      ↓  semantic legality
+Lean-checked meaning
+      ↓  realization evidence
+target driver
+      ↓
+machine / device
+```
+
+Every unproved arrow remains visible.
+
+## Running the Current Verified Line
+
+For the repaired formal core:
 
 ```bash
-# Compiler semantic contract
+git checkout repair/verification-contract
+
 python -m unittest -v tests/test_semantic_contract.py
 
-# Lean formal core
 cd lean
 lake build
-
-# Principal theorem dependency audit
 lake env lean Audit.lean
 ```
 
-Historical QEMU/RV32 scripts remain useful execution evidence, but they are not all canonical refinement targets because firmware behavior evolved between sprints.
+For the semantic-script experiment:
 
-## Project Scope
+```bash
+git checkout feature/semantic-script-kernel
 
-PSL remains a **research prototype**. The repaired branch has a real, CI-backed, axiom-free theorem connecting its canonical control validator to its abstract execution model. The next major verification boundary is connecting the Python compiler to that Lean model, followed by a single canonical RV32 runtime refinement.
+cd lean
+lake build
+lake env lean Audit.lean
+```
 
-compiler · firmware · dsl · embedded-systems · formal-methods · sanskrit · risc-v · panini · lean4
+## Repository Map
+
+- `src/utils/paninian_compiler.py` — current Python compiler / PVM32 realization path
+- `lean/PSL/Semantics.lean` — repaired canonical abstract/control semantics
+- `lean/PSL/SemanticKernel.lean` — surface-neutral semantic kernel on the feature branch
+- `lean/PSL/PVM32Driver.lean` — first semantic-to-target driver experiment
+- `programs/` — active and historical PSL examples
+- `src/rv32/` — historical RV32/QEMU execution experiments
+- `docs/` — verification, semantic-gap, architecture, and case-study material
+- `paper/` — research manuscript; historical claims must be reconciled with the current ledger
+- `evidence/` — captured execution artifacts
+
+## North Star
+
+> **Describe what computation means.  
+> Let surfaces choose how humans express it.  
+> Let drivers choose how machines realize it.  
+> Make legality explicit.  
+> Refuse what cannot be derived.  
+> Keep every proof boundary visible.**
+
+**Meaning is invariant. Prakriyā evolves. Hardware supplies capabilities. Paribhāṣā decides legality. Lean establishes trust.**
+
+---
+
+PSL is an open research prototype. The goal is not to make Sanskrit-shaped code look novel; it is to discover whether a derivational semantic system can let software meaning survive changes in notation, tooling, and hardware — and to kill that hypothesis if the evidence says it cannot.
