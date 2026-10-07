@@ -1,22 +1,14 @@
+# Canonical Lopa example — verification-repair semantics
+#
+# Lopa is a hard inheritance boundary:
+#   1. the target must currently have live written state;
+#   2. Lopa consumes that live-written state;
+#   3. Lopa clears Anuvrtti context.
+#
+# A target-less instruction immediately after Lopa is therefore rejected by
+# the compiler. The negative case is covered by tests/test_semantic_contract.py.
+
 तन्त्रशास्त्रम् {
-    # SPRINT 5: Lopa — Structured Erasure and Inheritance Boundary
-    #
-    # लोपः (Lopaḥ) — explicit nullification.
-    # Not absence. Not inheritance. A declared end.
-    # Pāṇini used Lopa to mark where a rule element is intentionally
-    # cancelled — nothing beyond this point inherits what came before.
-    #
-    # Instruction 1: Write to Vak explicitly. Siddha bus = 0xFF.
-    वाचम् लिखति ।
-
-    # Instruction 2: Lopa on Vak. Erases the bus entry. Resets inheritance.
-    # Opcode 0x00 = Lopa. FLAGS 0xF = Immediate Lopa boundary.
-    # After this, prev_target carry register is cleared to 0x00.
-    वाचम् लोपः ।
-
-    # Instruction 3: Anuvrtti write — no target stated.
-    # Compiler sets COMP=0x1, TARGET=0x00.
-    # Firmware attempts to inherit prev_target — but Lopa reset it to 0x00.
-    # Result: LOPA BOUNDARY — inheritance blocked, no write committed.
-    लिखति ।
+    वाचम् लिखति ।   # explicit WRITE establishes target 0x30 + live state
+    वाचम् लोपः ।    # explicit LOPA erases 0x30 and clears context
 }
