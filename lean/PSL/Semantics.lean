@@ -235,6 +235,30 @@ def ValidProgram (ir : List IRNode) : Prop :=
     validateIR ir = some cFinal ∧
     cFinal.scopeDepth = 0
 
+/-- Executable certificate boundary for Python-emitted IR. -/
+def validateIRClosed (ir : List IRNode) : Bool :=
+  match validateIR ir with
+  | none => false
+  | some cFinal => cFinal.scopeDepth == 0
+
+/--
+A successful executable IR certificate is sufficient to construct Lean's
+propositional ValidProgram witness. This keeps generated compiler certificates
+inside the same trust boundary as the abstract validator.
+-/
+theorem validateIRClosed_sound
+    (ir : List IRNode)
+    (hcert : validateIRClosed ir = true) :
+    ValidProgram ir := by
+  unfold validateIRClosed at hcert
+  cases hrun : validateIR ir with
+  | none =>
+      simp [hrun] at hcert
+  | some cFinal =>
+      have hclosed : cFinal.scopeDepth = 0 := by
+        simpa [hrun] using hcert
+      exact ⟨cFinal, hrun, hclosed⟩
+
 /-- Executable CI boundary for numeric compiler output. -/
 def validateEncodedClosed (words : List Nat) : Bool :=
   match validateWords (words.map decodeABIWord) ControlState.initial with
@@ -360,6 +384,18 @@ theorem valid_program_executes
   refine ⟨sFinal, hexec, ?_⟩
   rw [hcontrol]
   exact hclosed
+
+/--
+A generated compiler IR certificate that evaluates to true therefore carries
+all the way to non-aborting abstract execution with closed Adhikara scope.
+-/
+theorem certified_ir_executes
+    (ir : List IRNode)
+    (hcert : validateIRClosed ir = true) :
+    ∃ sFinal,
+      execute (lowerAll ir) MachineState.initial = some sFinal ∧
+      sFinal.control.scopeDepth = 0 := by
+  exact valid_program_executes ir (validateIRClosed_sound ir hcert)
 
 -- §9 Explicitly open refinement goals -----------------------------------------
 
