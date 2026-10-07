@@ -7,7 +7,7 @@ A claim may be promoted only when the stronger evidence exists in the repository
 
 ## Evidence labels
 
-- **PROVED** — discharged by the Lean kernel without `sorry` and without depending on an unproved project axiom for the stated claim.
+- **PROVED** — discharged by the Lean kernel in a CI-backed `lake build`, without `sorry` and without depending on an unproved project axiom for the stated claim.
 - **AXIOM-DEPENDENT** — theorem is accepted by Lean but transitively depends on a project axiom.
 - **TESTED** — supported by executable tests or QEMU runs, not a mathematical proof.
 - **MODEL-ONLY** — established only for PSL's abstract machine, not for RV32 hardware semantics.
@@ -18,13 +18,13 @@ A claim may be promoted only when the stronger evidence exists in the repository
 
 | Claim | Status | Evidence / limitation |
 |---|---|---|
-| `IRNode.lower` is a pure deterministic function of an `IRNode` | PROVED, but weak | `L1_lower_deterministic` is reflexivity (`lower n = lower n`). It establishes function equality only in the trivial sense and is not a compiler-determinism theorem. |
-| `lowerAll` preserves list length | PROVED | `L2_lower_length_preserving`. |
+| `IRNode.lower` is a pure deterministic function of an `IRNode` | UNVERIFIED IN CURRENT REVISION | The historical declaration was reflexive and the first real CI-backed Lean build currently fails before the formal file can be accepted as a whole. |
+| `lowerAll` preserves list length | UNVERIFIED IN CURRENT REVISION | Intended local theorem; current repair CI must first typecheck the formal module. |
 | Sañjñā-resolved and direct-address programs always compile to identical binaries | UNPROVEN in general | Current Lean theorem assumes `lowerAll ir1 = lowerAll ir2` and returns that assumption. Executable tests cover selected examples. |
-| WRITE to an Asiddha target is rejected by the abstract `step` relation | PROVED / MODEL-ONLY | `write_to_asiddha_fails`. This is not an RV32 memory-protection theorem. |
-| Explicit Lopa of an unwritten target is rejected by the abstract `step` relation | PROVED / MODEL-ONLY | `lopa_requires_prior_write`, under its stated state hypotheses. |
-| OPEN followed by CLOSE restores the prior ring in the abstract machine | PROVED / MODEL-ONLY | `open_close_ring_identity`. |
-| Every `paribhasha_ok` IR program executes successfully after lowering | AXIOM-DEPENDENT | `compile_sound` / `compile_sound_statement` depend on `p2_runtime_correctness`. The missing obligation is the forward-simulation relation between compile-time P2 tracking and runtime `MachineState.written`. |
+| WRITE to an Asiddha target is rejected by the abstract `step` relation | SEMANTIC CONFLICT | The pre-repair Lean model rejects it, while Sprint 9 firmware and canonical examples allow a Ring-2 WRITE to Asiddha via a write cache. See `docs/SEMANTIC_GAPS.md` G1. |
+| Explicit Lopa of an unwritten target is rejected by the abstract `step` relation | SEMANTIC CONFLICT / UNVERIFIED | Runtime clears written-state after Lopa; the Python compiler historically did not. See `docs/SEMANTIC_GAPS.md` G2. |
+| OPEN followed by CLOSE restores the prior ring in the abstract machine | UNVERIFIED IN CURRENT REVISION | Intended model property; current repair CI must first typecheck the formal module. |
+| Every `paribhasha_ok` IR program executes successfully after lowering | WITHDRAWN / UNPROVEN | The old theorem and `p2_runtime_correctness` axiom were removed from the repair branch. The goal is not currently valid until G1/G2 semantics are reconciled. |
 | PSL has a CompCert-equivalent compiler correctness proof | HYPOTHESIS / NOT ESTABLISHED | The repository has a CompCert-inspired structure, but the principal soundness result still depends on a project axiom and does not prove source-to-RV32 semantic preservation. |
 | 5000 generated differential cases passed | TESTED | Historical result from `run_differential_tests.py`; this tests implementation agreement over the generated domain, not semantic correctness by itself. |
 | RV32 QEMU pipelines emit the expected UART/MMIO markers | TESTED | Firmware pipelines execute under QEMU `virt`. This is execution evidence, not proof of physical-silicon behavior. |
@@ -34,9 +34,9 @@ A claim may be promoted only when the stronger evidence exists in the repository
 | Paninian structure makes whole classes of embedded bugs inexpressible | HYPOTHESIS, scoped | Demonstrated only for explicitly encoded legality predicates; it is not established as a general statement about embedded bugs. |
 | Results apply to physical RISC-V silicon | UNPROVEN | Current runtime evidence is QEMU-based. |
 
-## Principal open proof obligation
+## Current blocking obligations
 
-The highest-priority formal gap is:
+The first priority is semantic agreement across compiler, specification, executable runtime, and Lean. Two concrete contradictions are documented in `docs/SEMANTIC_GAPS.md`. After those are resolved, the principal formal gap remains:
 
 ```text
 compile-time p2_ok
