@@ -100,11 +100,11 @@ def markErased (written : Nat → Bool) (a : Nat) : Nat → Bool :=
 def resolveTarget (c : ControlState) (w : ABIWord) : Option Nat :=
   if w.comp.val = 1 then c.contextTarget else some w.target.val
 
-def isExecutableOpcode (w : ABIWord) : Prop :=
-  w.opcode = OP_WRITE ∨
-  w.opcode = OP_READ ∨
-  w.opcode = OP_STORE ∨
-  w.opcode = OP_LOPA
+def isExecutableOpcode (w : ABIWord) : Bool :=
+  w.opcode == OP_WRITE ||
+  w.opcode == OP_READ ||
+  w.opcode == OP_STORE ||
+  w.opcode == OP_LOPA
 
 /-
   Canonical control transition.
@@ -123,7 +123,7 @@ def controlStep (c : ControlState) (w : ABIWord) : Option ControlState :=
   else if w.opcode = OP_CLOSE then
     if c.scopeDepth = 0 then none
     else some { c with scopeDepth := c.scopeDepth - 1 }
-  else if ¬ isExecutableOpcode w then
+  else if isExecutableOpcode w = false then
     none
   else
     match resolveTarget c w with
