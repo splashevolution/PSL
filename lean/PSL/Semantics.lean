@@ -72,6 +72,27 @@ def lowerAll (ir : List IRNode) : List ABIWord :=
 def sanjnaaEquiv (ir1 ir2 : List IRNode) : Prop :=
   lowerAll ir1 = lowerAll ir2
 
+-- §2.1 Numeric ABI decoder -----------------------------------------------------
+
+def fin16 (n : Nat) : Fin 16 :=
+  ⟨n % 16, Nat.mod_lt _ (by decide)⟩
+
+def fin256 (n : Nat) : Fin 256 :=
+  ⟨n % 256, Nat.mod_lt _ (by decide)⟩
+
+/-- Decode the low 32 bits of a numeric ABI word into PSL fields. -/
+def decodeABIWord (n : Nat) : ABIWord :=
+  { ring   := fin16  (n / 0x10000000)
+  , comp   := fin16  (n / 0x01000000)
+  , opcode := fin256 (n / 0x00010000)
+  , target := fin256 (n / 0x00000100)
+  , flags  := fin16  (n / 0x00000010)
+  , cond   := fin16  n }
+
+theorem decode_known_word_roundtrip :
+    ABIWord.toNat (decodeABIWord 0x200530F0) = 0x200530F0 := by
+  native_decide
+
 -- §3 Canonical control state ----------------------------------------------------
 
 /-
@@ -213,6 +234,12 @@ def ValidProgram (ir : List IRNode) : Prop :=
   ∃ cFinal,
     validateIR ir = some cFinal ∧
     cFinal.scopeDepth = 0
+
+/-- Executable CI boundary for numeric compiler output. -/
+def validateEncodedClosed (words : List Nat) : Bool :=
+  match validateWords (words.map decodeABIWord) ControlState.initial with
+  | none => false
+  | some cFinal => cFinal.scopeDepth == 0
 
 -- §6 Closed lowering facts ----------------------------------------------------
 
