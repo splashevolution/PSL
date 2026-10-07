@@ -1,0 +1,38 @@
+# Sprint 13: Key Lifecycle Management
+# Demonstrates: P2 (Lopa zeroization), P4 (Adhikara scope),
+#               P1 (Anuvrtti chain), Sandhi (atomic arm sequence)
+#
+# Sanjnaa bindings:
+#   स्थितिः (sthitih)  = 0x20  -- status register  [SIDDHA,  visible to all]
+#   कुञ्जी  (kunji)    = 0x50  -- key register      [ASIDDHA, Ring-0 only]
+#   सक्रियः (sakriyah) = 0x70  -- active flag       [ASIDDHA, Ring-0 only]
+#
+# ABI word map (10 words, 40 bytes):
+#   W00  0x200520F0  Ring2 Write  status        -- pre-arm  status checkpoint
+#   W01  0x00AA00F0  Ring0 OPEN                 -- Adhikara scope start
+#   W02  0x00CC50F0  Ring0 Store  key           -- load key into shadow reg
+#   W03  0x01CC00F0  Ring0 Store  (inherited)   -- Anuvrtti: redundancy write
+#   W04  0x00CC70E0  Ring0 Store  active SANDHI -- atomic arm (first half)
+#   W05  0x00CC70F0  Ring0 Store  active        -- atomic arm (second half)
+#   W06  0x000050F0  Ring0 Lopa   key           -- zeroize key (P2 guaranteed)
+#   W07  0x010000F0  Ring0 Lopa   (inherited)   -- zeroize redundancy copy
+#   W08  0x00BB00F0  Ring0 CLOSE                -- Adhikara scope end
+#   W09  0x200520F0  Ring2 Write  status        -- post-zeroize status checkpoint
+
+सञ्ज्ञा स्थितिः = 0x20 ।
+सञ्ज्ञा कुञ्जी  = 0x50 ।
+सञ्ज्ञा सक्रियः = 0x70 ।
+
+तन्त्रशास्त्रम् {
+    स्थितिः लिखति ।       # W00: Ring2 status write -- pre-arm checkpoint
+    अधिकारः {
+        कुञ्जी स्थापयति ।  # W02: Ring0 Store key (P4 auto-promote, P3 ok: Asiddha)
+        स्थापयति ।          # W03: Ring0 Store inherited (Anuvrtti P1)
+        सक्रियः स्थापयति ।  # W04: Ring0 Store active -- Sandhi first half
+        सन्धिः ।             # Sandhi directive: fuse W04+W05 into atomic pair
+        सक्रियः स्थापयति ।  # W05: Ring0 Store active -- Sandhi second half
+        कुञ्जी लोपः ।       # W06: Ring0 Lopa key (P2: prior write at W02, P4 auto-promote)
+        लोपः ।               # W07: Ring0 Lopa inherited (Anuvrtti)
+    }
+    स्थितिः लिखति ।       # W09: Ring2 status write -- post-zeroize checkpoint
+}
