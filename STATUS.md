@@ -55,7 +55,7 @@ They should not be copied into new semantic-continuity modules.
 
 See `docs/TERMINOLOGY_AUDIT.md`.
 
-## Active formal milestone — GREEN-1
+## Active formal milestone — RED-2
 
 RED-1 established that two distinct target bindings for the same semantic script both pass the capability-plus-lowering gate.
 
@@ -65,7 +65,13 @@ See \`docs/research/RED1_DISHONEST_BINDING.md\` and \`docs/research/GREEN1_DEVIC
 
 This closes only binding correctness relative to a stated device model. Representation, units, protocol state, persistence, failure handling, and physical-device conformance remain open.
 
-The next falsification target is the same physical resource with a wrong representation:
+RED-2 now freezes the GREEN-1-correct resource binding and mutates only the target payload. A machine-checked witness shows that both raw values pass the GREEN-1 binding checker because representation is outside its model.
+
+See \`docs/research/RED2_REPRESENTATION_BLINDNESS.md\`.
+
+This establishes the next narrow gap: **binding correctness is not representation correctness**.
+
+The motivating case is:
 
 Example:
 
@@ -79,10 +85,9 @@ correct:
   ACK observed
 
 incorrect:
-  write 25
-  wrong resource
-  wrong unit
-  missing state transition
+  encode 25.0 as 25
+  correct resource
+  representation mismatch
 ```
 
 The new theory should reject incorrect realizations because of behavior, not
