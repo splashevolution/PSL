@@ -1,3 +1,5 @@
+import Std.Tactic
+
 /-
   PSL/Semantics.lean
   Pāṇinian Systems Language — Formal Semantics (Lean 4)
