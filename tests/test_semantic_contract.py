@@ -47,5 +47,50 @@ class SemanticContractTests(unittest.TestCase):
         self.assertGreater(len(words), 0)
 
 
+    def test_lopa_clears_anuvrtti_context(self):
+        source = """तन्त्रशास्त्रम् {
+    वाचम् लिखति ।
+    वाचम् लोपः ।
+    लिखति ।
+}
+"""
+        with self.assertRaises(ParibhashaError) as ctx:
+            self.compile(source)
+        self.assertEqual(ctx.exception.rule_id, "P1")
+
+    def test_inherited_lopa_must_target_live_state(self):
+        source = """तन्त्रशास्त्रम् {
+    वाचम् लिखति ।
+    लोपः ।
+    लोपः ।
+}
+"""
+        with self.assertRaises(ParibhashaError) as ctx:
+            self.compile(source)
+        self.assertEqual(ctx.exception.rule_id, "P1")
+
+    def test_store_requires_adhikara_even_on_siddha(self):
+        source = """तन्त्रशास्त्रम् {
+    वाचम् स्थापयति ।
+}
+"""
+        with self.assertRaises(ParibhashaError) as ctx:
+            self.compile(source)
+        self.assertEqual(ctx.exception.rule_id, "P4")
+
+    def test_inherited_store_uses_live_context(self):
+        source = """तन्त्रशास्त्रम् {
+    अधिकारः {
+        यन्त्र स्थापयति ।
+        स्थापयति ।
+    }
+}
+"""
+        words = self.compile(source)
+        self.assertEqual(words[1], 0x00CC60F0)
+        self.assertEqual(words[2], 0x01CC00F0)
+
+
+
 if __name__ == "__main__":
     unittest.main()
