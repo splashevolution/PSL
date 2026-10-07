@@ -17,3 +17,6 @@ jobs:
           python-version: "3.12"
       - name: Run semantic contract tests
         run: python -m unittest discover -v -s tests
+
+      - name: Run canonical differential falsification
+        run: python run_differential_tests.py --count 1000 --seed 42
