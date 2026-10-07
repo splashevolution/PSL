@@ -94,15 +94,35 @@ Python final IR
     -> abstract execution
 ```
 
-The new open obligation is:
+The branch now contains the first executable PVM32 adapter. The semantic
+identity used by the cross-surface witness is `SemanticId(1001)`; only the
+PVM32 binding table associates it with target byte `0x20`.
+
+Lean machine-checks both:
 
 ```text
-SemanticScript
-    -> PVM32 realization
-    -> existing Prakriya IR
+English:    "write status"
+Devanagari: "स्थितिः लिखति ।"
+        ↓
+same SemanticScript
+        ↓ PVM32 Driver 0 binding
+0x200520F0
 ```
 
-That arrow must be specified and proved rather than assumed.
+The theorem `surface_choice_does_not_change_pvm32_realization` establishes
+that these two explicitly elaborated surfaces have the same PVM32 realization.
+
+This is a **witness**, not yet a universal source-language theorem. The larger
+open obligation remains:
+
+```text
+arbitrary supported SurfaceForm
+    -> SemanticScript
+    -> PVM32 realization
+    -> existing Prakriya IR / validator
+```
+
+That correspondence must be specified and proved rather than assumed.
 
 ## Non-goals of this first kernel
 
