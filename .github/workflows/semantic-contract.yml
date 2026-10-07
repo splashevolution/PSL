@@ -16,4 +16,4 @@ jobs:
         with:
           python-version: "3.12"
       - name: Run semantic contract tests
-        run: python -m unittest -v tests/test_semantic_contract.py
+        run: python -m unittest discover -v -s tests
